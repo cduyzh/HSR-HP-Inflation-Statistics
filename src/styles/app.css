@@ -1,0 +1,52 @@
+:root {
+  color-scheme: dark;
+  --bg-0: #08131f;
+  --bg-1: #102032;
+  --bg-2: #16304a;
+  --surface: #12243a;
+  --surface-soft: #173049;
+  --surface-strong: #0d1b2d;
+  --line: #30506c;
+  --line-strong: #6ca1c8;
+  --text: #edf4fb;
+  --muted: #9fb7c9;
+  --acc: #f2b35d;
+  --acc2: #68d0c8;
+  --warn: #ffcb6b;
+  --bad: #ff4d7d;
+  --good: #2ee59d;
+  --shadow: rgba(2, 8, 16, 0.38);
+  --shadow-soft: 0 24px 64px rgba(3, 10, 18, 0.26);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Avenir Next', 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  background: linear-gradient(180deg, #07111d 0%, #0a1828 42%, #0d2131 100%);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  color: color-mix(in oklab, var(--acc2) 85%, white);
+}

@@ -1,0 +1,26 @@
+{
+  "name": "hsr-endgame-hp-trend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "vite build",
+    "sync:data": "node scripts/sync-local-cache.js",
+    "audit:moc-phase-hp": "node scripts/audit-moc-phase-hp.js"
+  },
+  "dependencies": {
+    "echarts": "^6.1.0",
+    "vue": "^3.5.39",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.1.3"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

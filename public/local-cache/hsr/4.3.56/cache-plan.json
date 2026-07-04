@@ -1,0 +1,33 @@
+{
+  "version": "4.3.56",
+  "locale": "zh",
+  "includeLatest": false,
+  "generatedAt": "2026-07-04T01:56:03.375Z",
+  "currentSeasonIds": {
+    "moc": 1034,
+    "fiction": 2025,
+    "doom": 3020,
+    "peak": 8
+  },
+  "cachedSeasonIds": {
+    "moc": [
+      1032,
+      1033
+    ],
+    "fiction": [
+      2024
+    ],
+    "doom": [
+      3018
+    ],
+    "peak": [
+      8
+    ]
+  },
+  "listFiles": {
+    "moc": "maze.json",
+    "fiction": "maze_extra.json",
+    "doom": "maze_boss.json",
+    "peak": "maze_peak.json"
+  }
+}
