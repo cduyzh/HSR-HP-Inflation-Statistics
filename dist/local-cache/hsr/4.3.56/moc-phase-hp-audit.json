@@ -1,8 +1,8 @@
 {
   "version": "4.3.56",
   "mode": "moc",
-  "generatedAt": "2026-07-04T01:56:08.543Z",
-  "totalHits": 34,
+  "generatedAt": "2026-07-04T02:59:26.261Z",
+  "totalHits": 35,
   "seasonFiles": [
     1004,
     1005,
@@ -29,7 +29,8 @@
     1030,
     1031,
     1032,
-    1033
+    1033,
+    1034
   ],
   "hits": [
     {
@@ -473,6 +474,19 @@
       "unitHp": 5900767,
       "hpMultiplier": 2,
       "totalHp": 11801534
+    },
+    {
+      "seasonFile": 1034,
+      "seasonId": 5312,
+      "seasonName": "扫除风暴其十二",
+      "side": "event_id_list2",
+      "stageId": 30124122,
+      "wave": 2,
+      "monsterId": 5014020,
+      "monsterName": "合金机铠•帕姆王",
+      "unitHp": 8510721,
+      "hpMultiplier": 2,
+      "totalHp": 17021442
     }
   ]
 }

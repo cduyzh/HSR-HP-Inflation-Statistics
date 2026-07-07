@@ -122,10 +122,31 @@ export function calcMonsterHpMultiplier(ctx, monsterId) {
   return total > 0 ? total : 1
 }
 
-export function listWaveMonsters(wave) {
+function resolveInfiniteEliteGroup(ctx, eliteGroup, enabled) {
+  const raw = toNum(eliteGroup)
+  if (!enabled || !raw) return raw
+  const mapped = raw + 296
+  return ctx.eliteMap.has(mapped) ? mapped : raw
+}
+
+export function listWaveMonsters(wave, infiniteWave, { preferInfinite = false } = {}) {
+  const infiniteMonsters = Array.isArray(infiniteWave?.monster_group_id_list)
+    ? infiniteWave.monster_group_id_list.map(toNum).filter(Boolean)
+    : []
+  if (preferInfinite && infiniteMonsters.length) return infiniteMonsters
   if (!wave || typeof wave !== 'object') return []
   return Object.values(wave)
     .map(toNum)
+    .filter(Boolean)
+}
+
+function getInfiniteWaveIndexes(infiniteList, stageId) {
+  if (!infiniteList || typeof infiniteList !== 'object') return []
+  const base = toNum(stageId) * 10
+  return Object.keys(infiniteList)
+    .map(toNum)
+    .filter(id => id > base && Math.floor(id / 10) === toNum(stageId))
+    .map(id => id - base)
     .filter(Boolean)
 }
 
@@ -146,7 +167,7 @@ export function getMonsterInfo(ctx, monsterId) {
   }
 }
 
-export function calcEventSide(ctx, events = [], { infiniteList } = {}) {
+export function calcEventSide(ctx, events = [], { infiniteList, preferInfiniteMonsterList = false, preferInfiniteEliteGroup = false } = {}) {
   const waves = []
   let sideHp = 0
 
@@ -155,20 +176,24 @@ export function calcEventSide(ctx, events = [], { infiniteList } = {}) {
     const hardLevelGroup = toNum(ev.hard_level_group)
     const stageId = toNum(ev.stage_id)
     const monsterList = Array.isArray(ev.monster_list) ? ev.monster_list : []
+    const infiniteWaveIndexes = preferInfiniteMonsterList ? getInfiniteWaveIndexes(infiniteList, stageId) : []
+    const waveCount = Math.max(monsterList.length, ...infiniteWaveIndexes)
 
-    for (let i = 0; i < monsterList.length; i += 1) {
-      const waveMonsters = listWaveMonsters(monsterList[i])
-      const eliteGroup =
+    for (let i = 0; i < waveCount; i += 1) {
+      const infiniteWave = getValue(infiniteList, stageId * 10 + (i + 1))
+      const waveMonsters = listWaveMonsters(monsterList[i], infiniteWave, { preferInfinite: preferInfiniteMonsterList })
+      const eliteGroupRaw =
         toNum(ev.elite_group) ||
-        toNum(getValue(infiniteList, stageId * 10 + (i + 1))?.elite_group) ||
-        toNum(getValue(infiniteList, stageId * 10 + (i + 1))?.EliteGroup) ||
+        toNum(infiniteWave?.elite_group) ||
+        toNum(infiniteWave?.EliteGroup) ||
         1
+      const hpEliteGroup = resolveInfiniteEliteGroup(ctx, eliteGroupRaw, preferInfiniteEliteGroup)
 
       const monsterMap = new Map()
       let waveHp = 0
 
       for (const mid of waveMonsters) {
-        const unitHp = calcMonsterHp(ctx, mid, { level, hardLevelGroup, eliteGroup })
+        const unitHp = calcMonsterHp(ctx, mid, { level, hardLevelGroup, eliteGroup: hpEliteGroup })
         const hpMultiplier = calcMonsterHpMultiplier(ctx, mid)
         waveHp += Math.round(unitHp * hpMultiplier)
         const prev = monsterMap.get(mid)
@@ -182,14 +207,15 @@ export function calcEventSide(ctx, events = [], { infiniteList } = {}) {
           hpMultiplier,
           level,
           hardLevelGroup,
-          eliteGroup,
+          eliteGroup: eliteGroupRaw,
+          hpEliteGroup,
           count: 1,
         })
       }
 
       sideHp += waveHp
       const monsters = [...monsterMap.values()].sort((a, b) => (b.unitHp || 0) - (a.unitHp || 0))
-      waves.push({ stageId, waveIndex: i + 1, eliteGroup, waveHp, monsters })
+      waves.push({ stageId, waveIndex: i + 1, eliteGroup: eliteGroupRaw, hpEliteGroup, waveHp, monsters })
     }
   }
 

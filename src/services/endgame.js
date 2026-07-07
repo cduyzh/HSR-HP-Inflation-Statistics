@@ -247,9 +247,14 @@ function buildSeasonLabel(modeKey, seasonId, detail, effects) {
 
 function computeStage(modeKey, ctx, stage) {
   const raw = stage.raw || {}
+  const preferInfiniteMonsterList = modeKey === 'fiction'
   const groups = buildStageGroups(modeKey, raw).map(group => ({
     ...group,
-    ...calcEventSide(ctx, group.events, { infiniteList: group.infiniteList }),
+    ...calcEventSide(ctx, group.events, {
+      infiniteList: group.infiniteList,
+      preferInfiniteMonsterList,
+      preferInfiniteEliteGroup: preferInfiniteMonsterList,
+    }),
   }))
 
   const side1 = groups.find(it => it.key === 'side1') || { sideHp: 0, waves: [] }

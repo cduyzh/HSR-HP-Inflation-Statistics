@@ -71,6 +71,14 @@ function goMode(nextMode) {
     <header class="hero-shell">
       <section class="hero-panel">
         <div class="hero-copy">
+          <div class="brand-mark">
+            <img class="brand-mark-icon" src="/favicon.png" alt="HSR" />
+            <div class="brand-mark-copy">
+              <div class="brand-mark-title">HSR Endgame Board</div>
+              <div class="brand-mark-note">本地缓存驱动的终局血量看板</div>
+            </div>
+          </div>
+
           <div class="eyebrow">Honkai: Star Rail Endgame</div>
           <div class="brand-title">终局血量趋势</div>
           <div class="brand-sub">聚焦忘却之庭、虚构叙事、末日幻影与异相仲裁，用赛季总 HP、节点波次与怪物构成还原膨胀曲线。</div>
@@ -178,6 +186,36 @@ function goMode(nextMode) {
 .hero-copy {
   display: grid;
   gap: 14px;
+}
+
+.brand-mark {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.brand-mark-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  object-fit: cover;
+  box-shadow: 0 16px 34px rgba(7, 10, 22, 0.34);
+}
+
+.brand-mark-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.brand-mark-title {
+  font-size: 15px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+}
+
+.brand-mark-note {
+  font-size: 12px;
+  color: color-mix(in oklab, var(--muted) 90%, white);
 }
 
 .eyebrow {

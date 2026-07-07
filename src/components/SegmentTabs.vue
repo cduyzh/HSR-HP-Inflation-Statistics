@@ -2,6 +2,7 @@
 const props = defineProps({
   modelValue: { type: String, required: true },
   items: { type: Array, required: true },
+  layout: { type: String, default: 'rail' },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -12,7 +13,7 @@ function pick(v) {
 </script>
 
 <template>
-  <div class="seg" role="tablist" aria-label="筛选选项">
+  <div class="seg" :data-layout="layout" role="tablist" aria-label="筛选选项">
     <button
       v-for="it in items"
       :key="it.value"
@@ -31,9 +32,7 @@ function pick(v) {
 
 <style scoped>
 .seg {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  display: flex;
   gap: 10px;
   padding: 6px;
   border-radius: 8px;
@@ -41,16 +40,39 @@ function pick(v) {
     linear-gradient(180deg, color-mix(in oklab, var(--bg-0) 46%, var(--surface)), color-mix(in oklab, var(--bg-1) 72%, transparent));
   border: 1px solid color-mix(in oklab, var(--line) 72%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.seg[data-layout='rail'] {
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+
+.seg::-webkit-scrollbar {
+  display: none;
+}
+
+.seg[data-layout='fill'] {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  overflow: hidden;
 }
 
 .seg-btn {
   position: relative;
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  min-width: 104px;
+  min-width: clamp(148px, 18vw, 224px);
+  max-width: min(280px, 72vw);
   height: 46px;
+  padding: 0 18px;
   border-radius: 7px;
   border: 1px solid color-mix(in oklab, var(--line) 48%, transparent);
   background:
@@ -58,6 +80,13 @@ function pick(v) {
   color: color-mix(in oklab, var(--muted) 88%, white);
   cursor: pointer;
   transition: color 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.seg[data-layout='fill'] .seg-btn {
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  padding: 0 14px;
 }
 
 .seg-btn:hover,
@@ -98,15 +127,30 @@ function pick(v) {
   font-weight: 760;
   letter-spacing: 0;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 1040px) {
+  .seg[data-layout='rail'] {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .seg[data-layout='rail'] .seg-btn {
+    flex: 1 1 176px;
+    min-width: 176px;
+    max-width: none;
+  }
 }
 
 @media (max-width: 720px) {
-  .seg {
+  .seg[data-layout='fill'] {
     grid-auto-flow: row;
     grid-auto-columns: auto;
   }
 
-  .seg-btn {
+  .seg[data-layout='fill'] .seg-btn {
     width: 100%;
     min-width: 0;
   }

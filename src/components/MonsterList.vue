@@ -67,6 +67,7 @@ function totalMultiplier(item) {
 
         <div class="cards">
           <article v-for="m in wave.monsters" :key="`${wave.stageId}-${wave.waveIndex}-${m.id}`" class="card">
+            <span v-if="m.count > 1" class="count-badge">x{{ m.count }}</span>
             <div class="media">
               <div class="frame">
                 <img v-if="m.icon" class="img" :src="iconUrl(m.icon)" :alt="m.name" loading="lazy" @error="handleImageError" />
@@ -78,7 +79,6 @@ function totalMultiplier(item) {
                 <div class="sub">
                   <span class="pill">#{{ m.id }}</span>
                   <span v-if="m.level" class="pill">Lv. {{ m.level }}</span>
-                  <span v-if="m.count > 1" class="pill">数量 x{{ m.count }}</span>
                   <span v-if="m.hpMultiplier > 1" class="pill accent">HP x{{ m.hpMultiplier }}</span>
                 </div>
               </div>
@@ -195,6 +195,7 @@ function totalMultiplier(item) {
 }
 
 .card {
+  position: relative;
   padding: 14px 12px 12px;
   border-radius: 18px;
   background: linear-gradient(180deg, color-mix(in oklab, var(--surface-soft) 96%, transparent), color-mix(in oklab, var(--surface-strong) 90%, transparent));
@@ -202,16 +203,41 @@ function totalMultiplier(item) {
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--acc) 10%, transparent);
 }
 
+.count-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-width: 42px;
+  height: 32px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: color-mix(in oklab, var(--acc2) 72%, white);
+  font-size: 14px;
+  font-weight: 820;
+  line-height: 1;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--acc2) 28%, var(--surface-strong)), color-mix(in oklab, var(--acc2) 14%, var(--surface))),
+    color-mix(in oklab, var(--surface-strong) 90%, transparent);
+  border: 1px solid color-mix(in oklab, var(--acc2) 68%, white);
+  box-shadow:
+    0 8px 18px color-mix(in oklab, var(--acc2) 18%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, white 14%, transparent);
+  z-index: 2;
+}
+
 .media {
   display: grid;
-  grid-template-columns: 80px 1fr;
+  grid-template-columns: 108px 1fr;
   gap: 12px;
   align-items: start;
 }
 
 .frame {
-  width: 80px;
-  height: 80px;
+  width: 108px;
+  height: 84px;
   border-radius: 14px;
   background: radial-gradient(120% 120% at 20% 0%, color-mix(in oklab, var(--acc2) 26%, transparent), transparent 60%), color-mix(in oklab, var(--surface-strong) 92%, transparent);
   border: 1px solid color-mix(in oklab, var(--line-strong) 56%, var(--acc));
@@ -224,6 +250,9 @@ function totalMultiplier(item) {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center bottom;
+  box-sizing: border-box;
+  padding: 4px;
 }
 
 .ph {
@@ -233,6 +262,7 @@ function totalMultiplier(item) {
 }
 
 .name {
+  padding-right: 54px;
   font-size: 15px;
   font-weight: 720;
   letter-spacing: 0.01em;

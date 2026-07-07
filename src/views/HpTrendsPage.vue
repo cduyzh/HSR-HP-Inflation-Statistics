@@ -253,6 +253,7 @@ function selectAllSeasons() {
                   v-if="showStarFilter"
                   :model-value="starFilter"
                   :items="starTabs"
+                  layout="fill"
                   @update:model-value="v => (starFilter = v)"
                 />
               </div>

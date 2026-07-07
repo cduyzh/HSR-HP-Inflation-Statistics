@@ -66,7 +66,7 @@ function parseArgs(argv) {
   const out = {
     ver: '',
     locale: 'zh',
-    includeLatest: false,
+    includeLatest: true,
     moc: null,
     fiction: null,
     doom: null,
@@ -78,6 +78,7 @@ function parseArgs(argv) {
     if (arg === '--ver') out.ver = argv[i + 1] || ''
     if (arg === '--locale') out.locale = argv[i + 1] || 'zh'
     if (arg === '--include-latest') out.includeLatest = true
+    if (arg === '--exclude-latest') out.includeLatest = false
     if (arg === '--moc') out.moc = toIds(argv[i + 1])
     if (arg === '--fiction') out.fiction = toIds(argv[i + 1])
     if (arg === '--doom') out.doom = toIds(argv[i + 1])
