@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getHsrVersions } from './services/hsrStatic'
 
@@ -20,6 +20,8 @@ const tabs = [
 ]
 
 const liveVersion = ref('4.3')
+const activeSlideIndex = ref(0)
+let slideTimer = null
 
 onMounted(async () => {
   try {
@@ -28,6 +30,14 @@ onMounted(async () => {
   } catch {
     // 保持默认展示值，避免顶部说明受请求失败影响
   }
+
+  slideTimer = window.setInterval(() => {
+    activeSlideIndex.value = (activeSlideIndex.value + 1) % heroSlides.length
+  }, 5200)
+})
+
+onBeforeUnmount(() => {
+  if (slideTimer) window.clearInterval(slideTimer)
 })
 
 const heroSlides = [
@@ -37,6 +47,7 @@ const heroSlides = [
     note: '顶部横幅占位 · 后续可替换为轮播数据',
     image: '/banners/fiction-summer.png',
     position: 'center center',
+    href: '',
   },
   {
     id: 'dusk',
@@ -44,6 +55,7 @@ const heroSlides = [
     note: '以赛季摘要、活动公告或版本重点做轮播卡',
     image: '/banners/fiction-summer.png',
     position: '18% 42%',
+    href: '',
   },
   {
     id: 'aurora',
@@ -51,14 +63,15 @@ const heroSlides = [
     note: '当前为静态占位，已按移动端和横向轮播结构预留',
     image: '/banners/fiction-summer.png',
     position: '78% 34%',
+    href: '',
   },
 ]
 
-const activeSlide = computed(() => {
-  if (mode.value === 'peak') return heroSlides[2]
-  if (mode.value === 'doom') return heroSlides[1]
-  return heroSlides[0]
-})
+const activeSlide = computed(() => heroSlides[activeSlideIndex.value] || heroSlides[0])
+
+function selectSlide(index) {
+  activeSlideIndex.value = index
+}
 
 function goMode(nextMode) {
   if (nextMode === mode.value) return
@@ -92,36 +105,37 @@ function goMode(nextMode) {
               <span class="meta-k">当前版本</span>
               <span class="meta-v">{{ liveVersion }}</span>
             </div>
-            <div class="meta-card">
-              <span class="meta-k">数据来源</span>
-              <span class="meta-v">hsr.nanoka.cc / static.nanoka.cc</span>
-            </div>
           </div>
         </div>
 
         <div class="hero-visual">
-          <article
+          <component
+            :is="activeSlide.href ? 'a' : 'article'"
             class="hero-banner"
+            :href="activeSlide.href || undefined"
             :style="{ '--banner-image': `url(${activeSlide.image})`, '--banner-position': activeSlide.position }"
+            :aria-label="activeSlide.href ? `打开 ${activeSlide.title}` : undefined"
           >
             <div class="hero-banner-copy">
-              <div class="hero-banner-k">Banner Placeholder</div>
+              <div class="hero-banner-k">Banner Carousel</div>
               <div class="hero-banner-v">{{ activeSlide.title }}</div>
               <p class="hero-banner-sub">{{ activeSlide.note }}</p>
             </div>
-          </article>
+          </component>
 
-          <div class="hero-thumbs" aria-label="顶部占位图预览">
-            <article
-              v-for="slide in heroSlides"
+          <div class="hero-dots" aria-label="顶部轮播切换">
+            <button
+              v-for="(slide, index) in heroSlides"
               :key="slide.id"
-              class="thumb-card"
+              type="button"
+              class="hero-dot"
               :data-active="slide.id === activeSlide.id"
-              :style="{ '--thumb-image': `url(${slide.image})`, '--thumb-position': slide.position }"
+              :aria-label="`切换到${slide.title}`"
+              @click="selectSlide(index)"
             >
-              <div class="thumb-title">{{ slide.title }}</div>
-              <div class="thumb-note">{{ slide.note }}</div>
-            </article>
+              <span class="hero-dot-bar" aria-hidden="true"></span>
+              <span class="hero-dot-text">{{ slide.title }}</span>
+            </button>
           </div>
         </div>
       </section>
@@ -174,8 +188,8 @@ function goMode(nextMode) {
 
 .hero-panel {
   display: grid;
-  gap: 16px;
-  padding: 18px;
+  gap: 14px;
+  padding: 16px;
   border-radius: 26px;
   background: linear-gradient(180deg, color-mix(in oklab, var(--surface-strong) 94%, transparent), color-mix(in oklab, var(--surface) 96%, transparent));
   border: 1px solid color-mix(in oklab, var(--line) 72%, transparent);
@@ -185,7 +199,7 @@ function goMode(nextMode) {
 
 .hero-copy {
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .brand-mark {
@@ -195,9 +209,9 @@ function goMode(nextMode) {
 }
 
 .brand-mark-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   object-fit: cover;
   box-shadow: 0 16px 34px rgba(7, 10, 22, 0.34);
 }
@@ -226,7 +240,7 @@ function goMode(nextMode) {
 }
 
 .brand-title {
-  font-size: clamp(32px, 5vw, 56px);
+  font-size: clamp(30px, 4.2vw, 48px);
   line-height: 0.98;
   letter-spacing: 0.01em;
   font-weight: 760;
@@ -235,8 +249,8 @@ function goMode(nextMode) {
 
 .brand-sub {
   max-width: 58ch;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.62;
   color: color-mix(in oklab, var(--muted) 88%, white);
 }
 
@@ -247,7 +261,7 @@ function goMode(nextMode) {
 }
 
 .meta-card {
-  min-height: 78px;
+  min-height: 66px;
   display: grid;
   gap: 8px;
   align-content: center;
@@ -274,6 +288,7 @@ function goMode(nextMode) {
 
 .hero-banner {
   position: relative;
+  display: block;
   min-height: 220px;
   overflow: hidden;
   border-radius: 22px;
@@ -282,6 +297,19 @@ function goMode(nextMode) {
     linear-gradient(120deg, rgba(7, 14, 24, 0.08), rgba(7, 14, 24, 0.64)),
     radial-gradient(140% 140% at 10% 0%, rgba(255, 255, 255, 0.18), transparent 46%),
     var(--banner-image) var(--banner-position) / cover no-repeat;
+  text-decoration: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.hero-banner[href] {
+  cursor: pointer;
+}
+
+.hero-banner[href]:hover,
+.hero-banner[href]:focus-visible {
+  border-color: color-mix(in oklab, var(--acc2) 58%, var(--line-strong));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+  outline: none;
 }
 
 .hero-banner::after {
@@ -295,7 +323,7 @@ function goMode(nextMode) {
   position: relative;
   z-index: 1;
   max-width: 420px;
-  padding: 22px;
+  padding: 18px;
 }
 
 .hero-banner-k {
@@ -307,62 +335,60 @@ function goMode(nextMode) {
 
 .hero-banner-v {
   margin-top: 8px;
-  font-size: clamp(24px, 3vw, 34px);
+  font-size: clamp(22px, 2.5vw, 30px);
   line-height: 1.08;
   font-weight: 760;
 }
 
 .hero-banner-sub {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   line-height: 1.6;
   color: rgba(238, 243, 255, 0.86);
 }
 
-.hero-thumbs {
-  display: grid;
+.hero-dots {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.thumb-card {
-  position: relative;
-  min-height: 96px;
-  overflow: hidden;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in oklab, var(--line) 72%, transparent);
-  background:
-    linear-gradient(180deg, rgba(10, 15, 26, 0.22), rgba(10, 15, 26, 0.68)),
-    var(--thumb-image) var(--thumb-position) / cover no-repeat;
-}
-
-.thumb-card[data-active='true'] {
-  border-color: color-mix(in oklab, var(--line-strong) 72%, var(--acc));
-  box-shadow: 0 16px 40px color-mix(in oklab, var(--acc) 16%, transparent);
-}
-
-.thumb-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(7, 12, 20, 0.1), rgba(7, 12, 20, 0.78));
-}
-
-.thumb-title,
-.thumb-note {
-  position: relative;
-  z-index: 1;
-}
-
-.thumb-title {
-  font-weight: 720;
-}
-
-.thumb-note {
-  margin-top: 8px;
+.hero-dot {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+  background: color-mix(in oklab, var(--surface-soft) 84%, transparent);
+  color: color-mix(in oklab, var(--muted) 92%, white);
   font-size: 12px;
-  line-height: 1.5;
-  color: rgba(239, 243, 250, 0.88);
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.hero-dot[data-active='true'] {
+  color: var(--text);
+  border-color: color-mix(in oklab, var(--acc) 50%, var(--line));
+  background: color-mix(in oklab, var(--acc) 12%, var(--surface-soft));
+}
+
+.hero-dot:hover,
+.hero-dot:focus-visible {
+  border-color: color-mix(in oklab, var(--acc2) 44%, var(--line));
+  outline: none;
+}
+
+.hero-dot-bar {
+  width: 18px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--line-strong) 62%, transparent);
+}
+
+.hero-dot[data-active='true'] .hero-dot-bar {
+  background: linear-gradient(90deg, color-mix(in oklab, var(--acc) 86%, white), color-mix(in oklab, var(--acc2) 82%, white));
 }
 
 .mode-tabs {
@@ -456,7 +482,7 @@ function goMode(nextMode) {
   .hero-panel {
     grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
     align-items: stretch;
-    max-height: 520px;
+    max-height: 430px;
   }
 
   .main {
@@ -469,8 +495,8 @@ function goMode(nextMode) {
     --mode-bar-offset: 128px;
   }
 
-  .hero-thumbs {
-    grid-template-columns: 1fr;
+  .hero-dots {
+    display: none;
   }
 
   .mode-tabs {
@@ -493,7 +519,7 @@ function goMode(nextMode) {
   }
 
   .hero-banner {
-    min-height: 186px;
+    min-height: 174px;
   }
 
   .brand-sub {

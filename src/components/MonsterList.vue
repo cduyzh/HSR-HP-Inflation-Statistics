@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { fmtInt, fmtShort } from '../utils/format'
 
 const props = defineProps({
   stage: { type: Object, default: null },
@@ -43,6 +44,14 @@ function totalHp(item) {
   return Math.round(unitHp * hpMultiplier * count)
 }
 
+function formatHpShort(value) {
+  return fmtShort(value || 0)
+}
+
+function formatHpExact(value) {
+  return `${fmtInt(value || 0)} HP`
+}
+
 function totalMultiplier(item) {
   const count = Number(item?.count) || 1
   const hpMultiplier = Number(item?.hpMultiplier) || 1
@@ -54,9 +63,17 @@ function totalMultiplier(item) {
   <div class="board">
     <article v-for="group in groups" :key="group.key" class="node">
       <header class="node-hd">
-        <div class="node-k">节点</div>
-        <div class="node-v">{{ group.name }}</div>
-        <div class="node-sub">{{ group.waves?.length || 0 }} 波 · {{ group.sideHp?.toLocaleString('en-US') }} HP</div>
+        <div class="node-title">
+          <div>
+            <div class="node-k">节点</div>
+            <div class="node-v">{{ group.name }}</div>
+          </div>
+          <div class="node-hp" :title="formatHpExact(group.sideHp)">
+            <span class="node-hp-k">合计</span>
+            <span class="node-hp-v">{{ formatHpShort(group.sideHp) }}</span>
+          </div>
+        </div>
+        <div class="node-sub">{{ group.waves?.length || 0 }} 波 · {{ formatHpExact(group.sideHp) }}</div>
       </header>
 
       <section v-for="wave in group.waves" :key="`${group.key}-${wave.stageId}-${wave.waveIndex}`" class="wave">
@@ -150,6 +167,13 @@ function totalMultiplier(item) {
   margin-bottom: 14px;
 }
 
+.node-title {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .node-k {
   font-size: 12px;
   color: var(--muted);
@@ -160,6 +184,29 @@ function totalMultiplier(item) {
 .node-v {
   font-size: 18px;
   font-weight: 760;
+}
+
+.node-hp {
+  min-width: 86px;
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  padding: 7px 10px;
+  border-radius: 14px;
+  background: color-mix(in oklab, var(--warn) 12%, var(--surface-strong));
+  border: 1px solid color-mix(in oklab, var(--warn) 36%, var(--line));
+}
+
+.node-hp-k {
+  font-size: 11px;
+  color: color-mix(in oklab, var(--muted) 86%, white);
+}
+
+.node-hp-v {
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+  color: color-mix(in oklab, var(--warn) 92%, white);
 }
 
 .node-sub {
@@ -346,5 +393,26 @@ function totalMultiplier(item) {
 .v {
   font-weight: 650;
   line-height: 1.45;
+}
+
+@media (min-width: 1080px) {
+  .board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .media {
+    grid-template-columns: 92px 1fr;
+  }
+
+  .frame {
+    width: 92px;
+    height: 76px;
+  }
+
+  .node-title {
+    align-items: stretch;
+  }
 }
 </style>

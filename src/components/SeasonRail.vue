@@ -292,6 +292,24 @@ const selectedSet = computed(() => new Set(props.selectedIds))
   outline: none;
 }
 
+@media (min-width: 1040px) {
+  .rail-hd {
+    grid-template-columns: minmax(180px, 1fr) minmax(320px, auto);
+    align-items: end;
+  }
+
+  .rail-actions {
+    min-width: 320px;
+  }
+
+  .rail-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+}
+
 @media (max-width: 720px) {
   .rail {
     padding: 14px;

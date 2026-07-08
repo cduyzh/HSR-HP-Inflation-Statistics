@@ -4,10 +4,9 @@ import { useRouter } from 'vue-router'
 import EffectList from '../components/EffectList.vue'
 import MonsterList from '../components/MonsterList.vue'
 import SegmentTabs from '../components/SegmentTabs.vue'
-import StatCard from '../components/StatCard.vue'
 import { getHsrVersions } from '../services/hsrStatic'
-import { getSeasonComputed } from '../services/endgame'
-import { fmtInt } from '../utils/format'
+import { getSeasonComputed, getSeasons } from '../services/endgame'
+import { fmtInt, fmtShort } from '../utils/format'
 
 const props = defineProps({
   mode: { type: String, required: true },
@@ -21,15 +20,22 @@ const ver = ref('')
 const loading = ref(false)
 const error = ref('')
 const data = ref(null)
+const seasons = ref([])
+const switchOpen = ref(false)
 
 const stageKey = ref('')
 const showStageSelector = computed(() => props.mode === 'peak')
 
 let ac = null
+let closeSwitchTimer = null
 
 function stopLoading() {
   ac?.abort()
   ac = null
+}
+
+function closeSeasonSwitch() {
+  switchOpen.value = false
 }
 
 async function ensureVersion() {
@@ -47,8 +53,12 @@ async function load() {
 
   try {
     await ensureVersion()
-    const computedSeason = await getSeasonComputed(props.mode, ver.value, props.id, { signal: ac.signal })
+    const [computedSeason, nextSeasons] = await Promise.all([
+      getSeasonComputed(props.mode, ver.value, props.id, { signal: ac.signal }),
+      getSeasons(props.mode, ver.value, { starFilter: 'all', signal: ac.signal }),
+    ])
     data.value = computedSeason
+    seasons.value = nextSeasons
     if (showStageSelector.value) stageKey.value = computedSeason.stages?.[0]?.key || ''
   } catch (e) {
     if (e?.name !== 'AbortError') error.value = e?.message || String(e)
@@ -61,6 +71,7 @@ watch(
   () => [props.mode, props.id, ver.value],
   () => {
     if (!ver.value) return
+    closeSeasonSwitch()
     load()
   },
 )
@@ -70,7 +81,10 @@ onMounted(async () => {
   load()
 })
 
-onBeforeUnmount(stopLoading)
+onBeforeUnmount(() => {
+  stopLoading()
+  if (closeSwitchTimer) window.clearTimeout(closeSwitchTimer)
+})
 
 const modeLabel = computed(() => {
   const m = props.mode
@@ -88,6 +102,8 @@ const totalLabel = computed(() => (props.mode === 'peak' ? '仲裁项总HP' : '�
 const effectTitle = computed(() => (props.mode === 'doom' ? '赛季效果' : '本期环境效果'))
 const stageEffectTitle = computed(() => (props.mode === 'peak' ? '当前关卡效果' : '当前阶段补充效果'))
 const seasonTitle = computed(() => data.value?.label || `${modeLabel.value} #${props.id}`)
+const seasonOptions = computed(() => seasons.value.slice().sort((a, b) => b.id - a.id))
+const currentSeasonOption = computed(() => seasonOptions.value.find(it => it.id === props.id))
 
 const stageTabs = computed(() => {
   const stages = data.value?.stages || []
@@ -112,12 +128,42 @@ const stageStats = computed(() => {
   }
 })
 
+const detailClass = computed(() => ({
+  grid: props.mode === 'peak',
+  'detail-stack': props.mode !== 'peak',
+}))
+
+const hasTopEffects = computed(() => {
+  if (data.value?.effects?.length) return true
+  if (activeStage.value?.effects?.length) return true
+  if (props.mode !== 'doom') return false
+  const nodeEffects = data.value?.nodeEffects || {}
+  return Boolean(nodeEffects.side1?.length || nodeEffects.side2?.length || nodeEffects.side3?.length)
+})
+
 function back() {
-  if (window.history.state?.back) {
-    router.back()
-    return
-  }
   router.push({ name: 'trends', params: { mode: props.mode } })
+}
+
+function toggleSeasonSwitch() {
+  switchOpen.value = !switchOpen.value
+}
+
+function scheduleCloseSeasonSwitch() {
+  if (closeSwitchTimer) window.clearTimeout(closeSwitchTimer)
+  closeSwitchTimer = window.setTimeout(closeSeasonSwitch, 120)
+}
+
+function cancelCloseSeasonSwitch() {
+  if (closeSwitchTimer) window.clearTimeout(closeSwitchTimer)
+  closeSwitchTimer = null
+}
+
+function goSeason(nextId) {
+  const id = Number(nextId)
+  closeSeasonSwitch()
+  if (!Number.isFinite(id) || id === props.id) return
+  router.push({ name: 'season', params: { mode: props.mode, id } })
 }
 
 </script>
@@ -151,10 +197,50 @@ function back() {
           </p>
         </div>
 
-        <div class="hero-aside">
-          <div class="hero-chip">数据版本 · {{ ver || 'latest' }}</div>
-          <div class="hero-chip">{{ activeStage?.name || '阶段详情' }}</div>
-          <div class="hero-chip">{{ stageStats.nodes }} 节点 / {{ stageStats.waves }} 波</div>
+        <div class="hero-total" :title="`${totalLabel} · ${fmtInt(stageStats.total)}`">
+          <div class="hero-total-k">{{ totalLabel }}</div>
+          <div class="hero-total-v">{{ fmtShort(stageStats.total) }}</div>
+          <div class="hero-total-sub">{{ mode === 'peak' ? '仲裁项总HP' : '关卡总HP' }} · {{ fmtInt(stageStats.total) }}</div>
+        </div>
+
+        <div class="season-switch" @focusout="scheduleCloseSeasonSwitch" @focusin="cancelCloseSeasonSwitch" @mouseleave="closeSeasonSwitch">
+          <div class="switch-label">切换赛季</div>
+          <div class="switch-control">
+            <button
+              class="season-trigger"
+              type="button"
+              :aria-expanded="switchOpen"
+              aria-haspopup="listbox"
+              @click="toggleSeasonSwitch"
+              @keydown.escape.stop="closeSeasonSwitch"
+            >
+              <span class="trigger-id">#{{ id }}</span>
+              <span class="trigger-name">{{ currentSeasonOption?.zh || currentSeasonOption?.en || seasonTitle }}</span>
+              <span class="select-caret" aria-hidden="true"></span>
+            </button>
+
+            <div v-if="switchOpen" class="season-menu" role="listbox" aria-label="选择赛季" @mouseenter="cancelCloseSeasonSwitch">
+              <button
+                v-for="season in seasonOptions"
+                :key="season.id"
+                class="season-option"
+                type="button"
+                role="option"
+                :aria-selected="season.id === id"
+                :data-active="season.id === id"
+                @click="goSeason(season.id)"
+              >
+                <span class="option-mark" aria-hidden="true"></span>
+                <span class="option-copy">
+                  <span class="option-id">#{{ season.id }}</span>
+                  <span class="option-name">{{ season.zh || season.en || season.id }}</span>
+                </span>
+              </button>
+            </div>
+          </div>
+          <div class="switch-meta">
+            {{ seasonOptions.length ? `共 ${seasonOptions.length} 期可切换` : '正在读取赛季列表' }}
+          </div>
         </div>
       </div>
     </section>
@@ -170,30 +256,28 @@ function back() {
       <div class="state-sub">正在拉取赛季数据并计算怪物血量…</div>
     </div>
 
-    <div v-else-if="data" class="grid">
-      <aside class="left">
-        <EffectList v-if="data.effects?.length" :title="effectTitle" :items="data.effects" />
-        <template v-if="mode === 'doom'">
-          <EffectList v-if="data.nodeEffects?.side1?.length" title="节点 1 效果" :items="data.nodeEffects.side1" />
-          <EffectList v-if="data.nodeEffects?.side2?.length" title="节点 2 效果" :items="data.nodeEffects.side2" />
-          <EffectList v-if="data.nodeEffects?.side3?.length" title="星启模式效果" :items="data.nodeEffects.side3" />
-        </template>
-        <div v-if="showStageSelector" class="panel">
-          <div class="panel-title">{{ stagePanelTitle }}</div>
-          <SegmentTabs :model-value="stageKey" :items="stageTabs" @update:model-value="v => (stageKey = v)" />
-          <div class="panel-sub">{{ stagePanelSub }}</div>
+    <div v-else-if="data" :class="detailClass">
+      <section class="detail-top">
+        <div class="top-panels">
+          <div v-if="showStageSelector" class="panel stage-panel">
+            <div class="panel-title">{{ stagePanelTitle }}</div>
+            <SegmentTabs :model-value="stageKey" :items="stageTabs" @update:model-value="v => (stageKey = v)" />
+            <div class="panel-sub">{{ stagePanelSub }}</div>
+          </div>
+
+          <div v-if="hasTopEffects" class="effects-row">
+            <EffectList v-if="data.effects?.length" :title="effectTitle" :items="data.effects" />
+            <template v-if="mode === 'doom'">
+              <EffectList v-if="data.nodeEffects?.side1?.length" title="节点 1 效果" :items="data.nodeEffects.side1" />
+              <EffectList v-if="data.nodeEffects?.side2?.length" title="节点 2 效果" :items="data.nodeEffects.side2" />
+              <EffectList v-if="data.nodeEffects?.side3?.length" title="星启模式效果" :items="data.nodeEffects.side3" />
+            </template>
+            <EffectList v-if="activeStage?.effects?.length" :title="stageEffectTitle" :items="activeStage.effects" />
+          </div>
         </div>
-        <EffectList v-if="activeStage?.effects?.length" :title="stageEffectTitle" :items="activeStage.effects" />
-      </aside>
+      </section>
 
       <section class="main">
-        <div class="stats">
-          <StatCard :label="totalLabel" :value="fmtInt(stageStats.total)" tone="warn" :sub="mode === 'peak' ? '已按仲裁项总HP口径汇总' : '已按关卡总HP口径汇总'" />
-          <StatCard label="节点数" :value="`${stageStats.nodes}`" :sub="stageStats.extraNodes ? `含 ${stageStats.extraNodes} 个追加轮次节点` : '按当前关卡节点统计'" />
-          <StatCard label="波次数" :value="`${stageStats.waves}`" sub="按节点内所有波次汇总" />
-          <StatCard label="怪物数量" :value="`${stageStats.count}`" sub="按出场数量统计" />
-        </div>
-
         <div class="block">
           <div class="block-hd">
             <div class="block-title">敌人波次</div>
@@ -215,13 +299,12 @@ function back() {
 
 .hero {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   padding: 18px;
-  border-radius: 30px;
+  border-radius: 24px;
   background:
-    linear-gradient(140deg, color-mix(in oklab, var(--surface-strong) 88%, transparent), color-mix(in oklab, var(--surface) 92%, transparent)),
-    radial-gradient(120% 160% at 0% 0%, color-mix(in oklab, var(--acc2) 18%, transparent) 0%, transparent 48%),
-    radial-gradient(120% 140% at 100% 0%, color-mix(in oklab, var(--acc) 22%, transparent) 0%, transparent 55%);
+    linear-gradient(135deg, color-mix(in oklab, var(--surface-strong) 92%, transparent), color-mix(in oklab, var(--surface) 94%, transparent)),
+    radial-gradient(100% 140% at 100% 80%, color-mix(in oklab, var(--acc) 16%, transparent) 0%, transparent 56%);
   border: 1px solid color-mix(in oklab, var(--line-strong) 68%, transparent);
   box-shadow: var(--shadow-soft);
 }
@@ -301,21 +384,204 @@ function back() {
   line-height: 1.65;
 }
 
-.hero-aside {
+.hero-total {
+  min-width: 180px;
   display: grid;
-  gap: 10px;
-  align-content: start;
+  gap: 6px;
+  align-content: center;
+  justify-self: stretch;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--warn) 10%, var(--surface-soft)), color-mix(in oklab, var(--surface-strong) 88%, transparent));
+  border: 1px solid color-mix(in oklab, var(--warn) 32%, var(--line));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, white 6%, transparent),
+    0 18px 42px color-mix(in oklab, var(--warn) 10%, transparent);
 }
 
-.hero-chip {
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  padding: 0 14px;
-  border-radius: 16px;
-  background: color-mix(in oklab, var(--surface-soft) 86%, transparent);
+.hero-total-k {
+  font-size: 12px;
+  color: color-mix(in oklab, var(--muted) 92%, white);
+}
+
+.hero-total-v {
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1;
+  font-weight: 840;
+  color: color-mix(in oklab, var(--warn) 94%, white);
+}
+
+.hero-total-sub {
+  font-size: 12px;
+  line-height: 1.45;
+  color: color-mix(in oklab, var(--muted) 90%, white);
+}
+
+.season-switch {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  align-content: end;
+  padding: 14px;
+  border-radius: 18px;
+  background: color-mix(in oklab, var(--surface-soft) 76%, transparent);
   border: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
-  color: color-mix(in oklab, var(--text) 92%, white);
+}
+
+.switch-label {
+  font-size: 13px;
+  font-weight: 760;
+  color: var(--text);
+}
+
+.switch-control {
+  position: relative;
+}
+
+.season-trigger {
+  width: 100%;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: 14px;
+  padding: 9px 42px 9px 12px;
+  background: color-mix(in oklab, var(--bg-1) 88%, transparent);
+  border: 1px solid color-mix(in oklab, var(--line-strong) 34%, var(--line));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.season-trigger:hover,
+.season-trigger:focus-visible {
+  border-color: color-mix(in oklab, var(--acc2) 50%, var(--line-strong));
+  background: color-mix(in oklab, var(--surface-soft) 86%, transparent);
+}
+
+.season-trigger:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--acc2) 82%, white);
+  outline-offset: 2px;
+}
+
+.trigger-id {
+  color: color-mix(in oklab, var(--warn) 92%, white);
+  font-weight: 820;
+}
+
+.trigger-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 760;
+}
+
+.select-caret {
+  position: absolute;
+  top: 50%;
+  right: 15px;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid color-mix(in oklab, var(--acc2) 78%, white);
+  border-bottom: 2px solid color-mix(in oklab, var(--acc2) 78%, white);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+  transition: transform 160ms ease;
+}
+
+.season-trigger[aria-expanded='true'] .select-caret {
+  transform: translateY(-35%) rotate(225deg);
+}
+
+.season-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(420px, calc(100vw - 44px));
+  max-height: 360px;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--surface-strong) 96%, transparent), color-mix(in oklab, var(--surface) 96%, transparent));
+  border: 1px solid color-mix(in oklab, var(--line-strong) 44%, var(--line));
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
+}
+
+.season-option {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.season-option:hover,
+.season-option:focus-visible {
+  border-color: color-mix(in oklab, var(--acc2) 34%, var(--line));
+  background: color-mix(in oklab, var(--surface-soft) 72%, transparent);
+  outline: none;
+}
+
+.season-option[data-active='true'] {
+  border-color: color-mix(in oklab, var(--acc) 50%, var(--line));
+  background: color-mix(in oklab, var(--acc) 11%, var(--surface-soft));
+}
+
+.option-mark {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--warn) 82%, white) 0 28%, transparent 29%),
+    color-mix(in oklab, var(--line) 74%, var(--surface-soft));
+  box-shadow: 0 0 0 5px color-mix(in oklab, var(--line) 22%, transparent);
+}
+
+.season-option[data-active='true'] .option-mark {
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--warn) 90%, white) 0 30%, transparent 31%),
+    linear-gradient(180deg, color-mix(in oklab, var(--acc2) 82%, white), color-mix(in oklab, var(--acc) 86%, white));
+}
+
+.option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.option-id {
+  font-size: 12px;
+  color: color-mix(in oklab, var(--muted) 90%, white);
+}
+
+.option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.switch-meta {
+  min-height: 20px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: color-mix(in oklab, var(--muted) 90%, white);
 }
 
 .id {
@@ -392,16 +658,29 @@ function back() {
   cursor: pointer;
 }
 
-.grid {
+.grid,
+.detail-stack {
   display: grid;
   grid-template-columns: 1fr;
   gap: 14px;
   align-items: start;
 }
 
-.left {
+.detail-top {
   display: grid;
   gap: 14px;
+  align-items: start;
+}
+
+.top-panels {
+  display: grid;
+  gap: 14px;
+}
+
+.effects-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .panel {
@@ -460,14 +739,14 @@ function back() {
 
 @media (min-width: 880px) {
   .hero-main {
-    grid-template-columns: minmax(0, 1fr) 240px;
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) minmax(260px, 340px);
     align-items: end;
   }
 }
 
 @media (min-width: 1040px) {
   .grid {
-    grid-template-columns: 360px 1fr;
+    grid-template-columns: 320px 1fr;
   }
 
   .stats {
@@ -491,6 +770,13 @@ function back() {
 
   .block-hd {
     display: grid;
+  }
+
+  .season-menu {
+    left: 0;
+    right: auto;
+    width: 100%;
+    max-height: 320px;
   }
 }
 </style>

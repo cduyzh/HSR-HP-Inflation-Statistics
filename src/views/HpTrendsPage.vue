@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import EChartView from '../components/EChartView.vue'
-import EffectList from '../components/EffectList.vue'
 import SeasonRail from '../components/SeasonRail.vue'
 import SegmentTabs from '../components/SegmentTabs.vue'
 import StatCard from '../components/StatCard.vue'
@@ -303,14 +302,6 @@ function selectAllSeasons() {
             @select-all="selectAllSeasons"
             @open="goSeason"
           />
-          <EffectList
-            title="说明"
-            :items="[
-              { name: '统计口径', desc: mode === 'peak' ? '异相仲裁按整期仲裁项总 HP 汇总；不区分星启，也不按阶段切片。' : '每期只统计最终关卡的两路敌人总 HP；若存在额外轮次，也会计入最终关卡总量。' },
-              { name: '阶段规则', desc: mode === 'moc' ? '忘却之庭：只统计最后一层。' : mode === 'fiction' ? '虚构叙事：只统计阶段 4。' : mode === 'doom' ? '末日幻影：只统计阶段 4，并补计同层额外轮次。' : '异相仲裁：单独按整期处理。' },
-              { name: '缓存规则', desc: '当前页面只读取 public/local-cache 下的本地静态 JSON，不再触发远端刷新。' },
-            ]"
-          />
         </aside>
       </div>
     </section>
@@ -319,7 +310,7 @@ function selectAllSeasons() {
 
 <style scoped>
 .layout {
-  max-width: 1360px;
+  width: 100%;
   margin: 0 auto;
   padding-top: clamp(12px, 1.8vw, 24px);
 }
@@ -505,8 +496,9 @@ function selectAllSeasons() {
 
 @media (min-width: 1040px) {
   .board-grid {
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: 1fr;
     align-items: start;
+    gap: 14px;
   }
 
   .stats {
