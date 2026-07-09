@@ -133,11 +133,18 @@ export function listWaveMonsters(wave, infiniteWave, { preferInfinite = false } 
   const infiniteMonsters = Array.isArray(infiniteWave?.monster_group_id_list)
     ? infiniteWave.monster_group_id_list.map(toNum).filter(Boolean)
     : []
-  if (preferInfinite && infiniteMonsters.length) return infiniteMonsters
-  if (!wave || typeof wave !== 'object') return []
-  return Object.values(wave)
-    .map(toNum)
-    .filter(Boolean)
+  const waveMonsters = wave && typeof wave === 'object'
+    ? Object.values(wave)
+      .map(toNum)
+      .filter(Boolean)
+    : []
+  if (!preferInfinite || !infiniteMonsters.length) return waveMonsters
+
+  const merged = infiniteMonsters.slice()
+  for (const monsterId of waveMonsters) {
+    if (!merged.includes(monsterId)) merged.push(monsterId)
+  }
+  return merged
 }
 
 function getInfiniteWaveIndexes(infiniteList, stageId) {

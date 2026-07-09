@@ -29,7 +29,8 @@
 ### 虚构叙事（fiction）
 
 - 统计口径：仅统计最后阶段（阶段 4）
-- 星启模式：从 `2024` 起存在。数据结构表现为“新增一个节点（节点3）”，应计入总量。
+- 星启模式：从 `2024` 起存在。数据结构可能表现为阶段 4 后追加一个无名 `level`（仅有 `event_id_list / infinite_list / npc_monster_id_list`），应提升为“节点3”并计入总量。
+- 无限波：星启虚构叙事的真实敌人列表以 `infinite_list*.monster_group_id_list` 为主；它会补充 `monster_list` 没有的敌人（例如 `8003060` 虚构集合体）。统计时应以无限波为主，并保底合并普通波里缺失的敌人，避免两类结构互相覆盖。
 
 ### 末日幻影（doom）
 
@@ -67,6 +68,7 @@
 - 多阶段血量：若 `monstervalue.json` 存在 `PhaseList`，总 HP 还要乘上所有 `phase_max_hp_ratio` 的和
 - 怪物图片：使用 `monstermiddleicon/Monster_{id}.webp`，实例怪物 9 位 id 自动回退到基础 id
 - 怪物数量：同一波次内相同怪物会聚合计数（显示 x2 / x3），总 HP = 单体 HP * 多阶段倍率 * count
+- 虚构叙事无限波：`monster_group_id_list` 是统计主列表，普通 `monster_list` 只作为缺失怪物的兜底补充。
 
 ### 终局聚合与趋势
 
@@ -101,7 +103,57 @@
 
 目录：`public/local-cache/`
 
-目的：将关键接口数据以 JSON 形式预先放入项目中；后续排查问题优先读本地文件，减少网络请求。
+目的：将关键接口数据以 JSON 形式预先放入项目中；后续排查问题优先读本地文件，减少网络请求。该目录也应被视为可供其他项目复用的静态数据源，路径结构需要保持稳定。
+
+### 数据目录协议
+
+部署后访问前缀为 `/local-cache/`，源码目录为 `public/local-cache/`。
+
+```text
+public/local-cache/
+├── manifest.json
+└── hsr/<ver>/
+    ├── monster.json
+    ├── monstervalue.json
+    ├── HardLevelGroup.json
+    ├── EliteGroup.json
+    ├── InfiniteEliteGroup.json
+    ├── maze.json
+    ├── maze_extra.json
+    ├── maze_boss.json
+    ├── maze_peak.json
+    ├── cache-plan.json
+    ├── moc-phase-hp-audit.json
+    └── <locale>/
+        ├── maze/<id>.json
+        ├── story/<id>.json
+        ├── boss/<id>.json
+        └── peak/<id>.json
+```
+
+核心入口：
+
+- `manifest.json`：上游版本索引；HSR 默认版本读取 `manifest.hsr.latest`。
+- `cache-plan.json`：本仓库落盘清单；记录 `version`、`locale`、`currentSeasonIds`、`cachedSeasonIds`、`listFiles`。
+- `maze.json / maze_extra.json / maze_boss.json / maze_peak.json`：四种终局模式的期数索引。
+- `<locale>/maze|story|boss|peak/<id>.json`：单期详情，是上游原始详情结构镜像。
+- `monster.json / monstervalue.json / HardLevelGroup.json / EliteGroup.json / InfiniteEliteGroup.json`：复算怪物 HP 所需的基础表。
+- `moc-phase-hp-audit.json`：忘却之庭多阶段 HP 命中审计，方便外部项目校验 `PhaseList` 对总血量的影响。
+
+模式映射：
+
+- `moc`：索引 `maze.json`，详情 `<locale>/maze/<id>.json`
+- `fiction`：索引 `maze_extra.json`，详情 `<locale>/story/<id>.json`
+- `doom`：索引 `maze_boss.json`，详情 `<locale>/boss/<id>.json`
+- `peak`：索引 `maze_peak.json`，详情 `<locale>/peak/<id>.json`
+
+维护约束：
+
+- 不要随意重命名这些 JSON 文件或详情目录；其他项目可按上述路径直接调取。
+- 不要把本项目聚合后的 UI 数据写回详情 JSON；详情 JSON 应保持上游原始结构，聚合逻辑留在 `src/services/endgame.js`。
+- 新增语言或赛季时，优先通过 `pnpm sync:data` 生成，避免手动拼 JSON 导致结构漂移。
+- 下游项目若只需要最近赛季，应读取 `cache-plan.json` 的 `currentSeasonIds`；若要遍历本地已有数据，应读取 `cachedSeasonIds`。
+- HP 复算必须同时考虑 `PhaseList.phase_max_hp_ratio` 多阶段倍率；不要只使用 `HPBase` 单段血量。
 
 更新命令：
 

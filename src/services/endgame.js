@@ -92,6 +92,8 @@ function pickStoryStages(detail) {
   if (extra && !extraName.trim() && Array.isArray(extra?.event_id_list) && extra.event_id_list.length) {
     raw.event_id_list3 = extra.event_id_list
     raw.infinite_list3 = extra.infinite_list || {}
+    raw.maze_group_id3 = extra.maze_group_id ?? null
+    raw.npc_monster_id_list3 = Array.isArray(extra.npc_monster_id_list) ? extra.npc_monster_id_list : []
   }
   return [{
     key: String(it.id ?? index),

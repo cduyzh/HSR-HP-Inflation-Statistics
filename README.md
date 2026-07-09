@@ -51,6 +51,64 @@ pnpm audit:moc-phase-hp -- --ver 4.3.56
 
 数据源：`https://static.nanoka.cc`，版本策略使用 `manifest.hsr.latest`（线上测试服最新）。
 
+## `public/local-cache` 数据目录
+
+`public/local-cache/` 是本项目预置的静态数据镜像，也可以作为其他项目复用的 HSR 终局数据源。它保留 `static.nanoka.cc` 的核心路径结构，部署后会以 `/local-cache/...` 形式直接暴露为 JSON。
+
+```text
+public/local-cache/
+├── manifest.json                         # 全游戏版本索引，HSR 使用 manifest.hsr.latest
+└── hsr/<ver>/
+    ├── monster.json                      # 怪物基础信息：名称、弱点、图标、子 id
+    ├── monstervalue.json                 # 怪物数值：HPBase、HPModifyRatio、HardLevelGroup、EliteGroup、PhaseList
+    ├── HardLevelGroup.json               # 等级难度倍率，按 HardLevelGroup + Level 匹配
+    ├── EliteGroup.json                   # 常规精英倍率
+    ├── InfiniteEliteGroup.json           # 无限/特殊精英倍率
+    ├── maze.json                         # 忘却之庭期数索引
+    ├── maze_extra.json                   # 虚构叙事期数索引
+    ├── maze_boss.json                    # 末日幻影期数索引
+    ├── maze_peak.json                    # 异相仲裁期数索引
+    ├── cache-plan.json                   # 本次落盘计划与已缓存赛季 id
+    ├── moc-phase-hp-audit.json           # 忘却之庭多阶段 HP 命中审计
+    └── <locale>/
+        ├── maze/<id>.json                # 忘却之庭单期详情
+        ├── story/<id>.json               # 虚构叙事单期详情
+        ├── boss/<id>.json                # 末日幻影单期详情
+        └── peak/<id>.json                # 异相仲裁单期详情
+```
+
+模式与文件映射：
+
+| 模式 | 期数索引 | 单期详情目录 | 说明 |
+| --- | --- | --- | --- |
+| `moc` | `maze.json` | `<locale>/maze/<id>.json` | 忘却之庭 |
+| `fiction` | `maze_extra.json` | `<locale>/story/<id>.json` | 虚构叙事 |
+| `doom` | `maze_boss.json` | `<locale>/boss/<id>.json` | 末日幻影 |
+| `peak` | `maze_peak.json` | `<locale>/peak/<id>.json` | 异相仲裁 |
+
+其他项目接入时可以直接复制该目录到自己的静态资源目录，或读取本项目部署后的 `/local-cache/*` JSON：
+
+```js
+const root = '/local-cache'
+const manifest = await fetch(`${root}/manifest.json`).then(res => res.json())
+const ver = manifest.hsr.latest
+const locale = 'zh'
+
+const plan = await fetch(`${root}/hsr/${ver}/cache-plan.json`).then(res => res.json())
+const mocList = await fetch(`${root}/hsr/${ver}/maze.json`).then(res => res.json())
+const latestMocId = plan.currentSeasonIds.moc
+const latestMocDetail = await fetch(`${root}/hsr/${ver}/${locale}/maze/${latestMocId}.json`).then(res => res.json())
+```
+
+注意事项：
+
+- `cache-plan.json` 记录当前版本、语言、各模式当前赛季 id、已落盘赛季 id 和索引文件名；下游项目应优先用它判断本地是否已有详情 JSON。
+- `manifest.hsr.latest` 是默认版本入口；如果要固定某次数据快照，可直接写死 `hsr/<ver>/...`。
+- 详情 JSON 是上游原始结构镜像，不是本项目聚合后的趋势结果。若要复算 HP，需要结合 `monster.json`、`monstervalue.json`、`HardLevelGroup.json`、`EliteGroup.json` / `InfiniteEliteGroup.json`。
+- 多阶段敌人的真实 HP 需要乘 `monstervalue.json` 中 `PhaseList.phase_max_hp_ratio` 的总和；可用 `moc-phase-hp-audit.json` 快速核对忘却之庭命中的赛季与怪物。
+- 怪物图片可按 `https://static.nanoka.cc/hsr/<ver>/monstermiddleicon/Monster_<id>.webp` 访问；9 位实例怪物 id 通常需要回退到基础怪物 id。
+- 原始期数列表可能包含历史或展示用条目；本项目趋势层还会做“名称相同且 id 差值 ≤ 2 时保留更小 id”的赛季去重。
+
 ## 部署
 
 ```bash
@@ -87,6 +145,7 @@ src/
 - **节点**：代表几路（节点 1/2/3）。星启模式本质是新增一路。
 - **波次**：节点内部的子关卡（波次 1/2/3...）。
 - **忘却之庭 / 虚构叙事 / 末日幻影**：只统计最后一个关卡 / 最后一个阶段的总 HP。
+- **虚构叙事星启节点**：`2024` 起可能通过阶段 4 后的无名 `level` 表达节点 3；该结构需要并入阶段 4，而不是作为独立阶段展示。
 - **异相仲裁**：按关卡拆分（含 `pre_level` 与 `将杀王棋` / `将杀王棋·绝境` 难度），整期仲裁项总 HP 汇总，不区分星启模式。
 
 ### 业务规则
@@ -95,6 +154,7 @@ src/
 - **HP 公式**：`HPBase × HPModifyRatio × HardLevelRatio × EliteRatio`；存在 `PhaseList` 时再乘所有 `phase_max_hp_ratio` 之和。
 - **怪物图片**：使用 `monstermiddleicon/Monster_{id}.webp`；9 位实例怪物 ID 自动回退到 7 位基础 ID。
 - **怪物数量**：同波次相同怪物聚合计数（x2、x3），总 HP = 单体 HP × 多阶段倍率 × count。
+- **虚构叙事无限波**：优先使用 `infinite_list*.monster_group_id_list` 统计敌人，并合并普通 `monster_list` 中无限波未包含的敌人，避免漏掉虚构集合体等补充怪或覆盖原始波次怪物。
 
 ## 开发约定
 
