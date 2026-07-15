@@ -5,6 +5,7 @@
     MODES,
     applyParams,
     fetchJson,
+    getCachePlan,
     getHsrVersions,
     stripRichText,
   } from "./services/hsrStatic";
@@ -25,8 +26,7 @@
     { key: "peak", label: "异相仲裁" },
   ];
 
-  const bannerVersion = "4.3.56";
-  const liveVersion = ref("4.3");
+  const liveVersion = ref("-");
   const activeSlideIndex = ref(0);
   let slideTimer = null;
 
@@ -142,8 +142,9 @@
   }
 
   async function loadHeroSlides() {
-    const plan = await fetchJson(`/hsr/${bannerVersion}/cache-plan.json`);
-    const ver = plan?.version || bannerVersion;
+    const versions = await getHsrVersions();
+    const plan = await getCachePlan(versions.latest);
+    const ver = plan?.version || versions.latest;
     const locale = plan?.locale || "zh";
     const slides = await Promise.all(
       bannerModes.map(async (item) => {

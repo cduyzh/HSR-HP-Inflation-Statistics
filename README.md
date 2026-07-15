@@ -39,21 +39,24 @@ pnpm preview
 ## 数据准备
 
 ```bash
-# 同步最新数据到 public/local-cache/
+# 校验竞速项目的共享数据是否完整
+pnpm sync:data:check
+
+# 从竞速项目导入赛季、怪物表与怪物图片
 pnpm sync:data
 
-# 指定版本与赛季
-pnpm sync:data -- --ver 4.3.56 --moc 1033,1032 --peak 8
+# 使用其他本地路径
+pnpm sync:data -- --source /path/to/hsr-endgame-竞速
 
 # 单独审计忘却之庭多阶段 HP
-pnpm audit:moc-phase-hp -- --ver 4.3.56
+pnpm audit:moc-phase-hp
 ```
 
-数据源：`https://static.nanoka.cc`，版本策略使用 `manifest.hsr.latest`（线上测试服最新）。
+统一数据源项目为 `/Users/hobby/Documents/hsr-endgame-竞速`。其自动化更新负责把 `static.nanoka.cc` 的赛季、怪物、角色、光锥等数据同步到本地；当前项目只导入所需的赛季 JSON、怪物基础表和怪物图片，不再独立请求第三方数据或图片。版本使用共享数据的 `manifest.hsr.latest`。
 
 ## `public/local-cache` 数据目录
 
-`public/local-cache/` 是本项目预置的静态数据镜像，也可以作为其他项目复用的 HSR 终局数据源。它保留 `static.nanoka.cc` 的核心路径结构，部署后会以 `/local-cache/...` 形式直接暴露为 JSON。
+`public/local-cache/` 是从统一数据源项目复制来的 HSR 终局静态镜像。它保留原始核心路径结构，部署后会以 `/local-cache/...` 形式直接暴露为 JSON；怪物图片同步到 `public/assets/hsr/monsters/`，部署后通过 `/assets/hsr/monsters/...` 访问。
 
 ```text
 public/local-cache/
@@ -106,7 +109,7 @@ const latestMocDetail = await fetch(`${root}/hsr/${ver}/${locale}/maze/${latestM
 - `manifest.hsr.latest` 是默认版本入口；如果要固定某次数据快照，可直接写死 `hsr/<ver>/...`。
 - 详情 JSON 是上游原始结构镜像，不是本项目聚合后的趋势结果。若要复算 HP，需要结合 `monster.json`、`monstervalue.json`、`HardLevelGroup.json`、`EliteGroup.json` / `InfiniteEliteGroup.json`。
 - 多阶段敌人的真实 HP 需要乘 `monstervalue.json` 中 `PhaseList.phase_max_hp_ratio` 的总和；可用 `moc-phase-hp-audit.json` 快速核对忘却之庭命中的赛季与怪物。
-- 怪物图片可按 `https://static.nanoka.cc/hsr/<ver>/monstermiddleicon/Monster_<id>.webp` 访问；9 位实例怪物 id 通常需要回退到基础怪物 id。
+- 怪物图片统一读取本站 `/assets/hsr/monsters/Monster_<id>.webp`；9 位实例怪物 id 通常需要回退到基础怪物 id。源站缺图时页面显示本地占位，不再回退第三方地址。
 - 原始期数列表可能包含历史或展示用条目；本项目趋势层还会做“名称相同且 id 差值 ≤ 2 时保留更小 id”的赛季去重。
 
 ## 部署
@@ -152,7 +155,7 @@ src/
 
 - **赛季去重**：名称相同且 ID 差值 ≤ 2 时，仅保留更小 ID。
 - **HP 公式**：`HPBase × HPModifyRatio × HardLevelRatio × EliteRatio`；存在 `PhaseList` 时再乘所有 `phase_max_hp_ratio` 之和。
-- **怪物图片**：使用 `monstermiddleicon/Monster_{id}.webp`；9 位实例怪物 ID 自动回退到 7 位基础 ID。
+- **怪物图片**：使用本地 `/assets/hsr/monsters/Monster_{id}.webp`；9 位实例怪物 ID 自动回退到 7 位基础 ID，源站缺图使用本地占位。
 - **怪物数量**：同波次相同怪物聚合计数（x2、x3），总 HP = 单体 HP × 多阶段倍率 × count。
 - **虚构叙事无限波**：优先使用 `infinite_list*.monster_group_id_list` 统计敌人，并合并普通 `monster_list` 中无限波未包含的敌人，避免漏掉虚构集合体等补充怪或覆盖原始波次怪物。
 

@@ -69,14 +69,6 @@ function writePersistentCache(path, data) {
 export async function fetchJson(path, { signal, force = false } = {}) {
   if (!force && jsonMemoryCache.has(path)) return jsonMemoryCache.get(path)
 
-  if (!force) {
-    const cached = readPersistentCache(path)
-    if (cached !== null) {
-      jsonMemoryCache.set(path, cached)
-      return cached
-    }
-  }
-
   if (!force && jsonRequestCache.has(path)) return jsonRequestCache.get(path)
 
   const request = (async () => {
@@ -84,14 +76,22 @@ export async function fetchJson(path, { signal, force = false } = {}) {
       throw new Error(`当前环境不支持读取本地静态数据：${path}`)
     }
 
-    const local = await fetch(`/local-cache${path}`, { signal })
-    if (!local.ok) throw new Error(`本地静态数据缺失：${path}`)
-    if (!isJsonResponse(local)) throw new Error(`本地静态数据格式错误：${path}`)
+    try {
+      const local = await fetch(`/local-cache${path}`, { signal })
+      if (!local.ok) throw new Error(`本地静态数据缺失：${path}`)
+      if (!isJsonResponse(local)) throw new Error(`本地静态数据格式错误：${path}`)
 
-    const data = await local.json()
-    jsonMemoryCache.set(path, data)
-    writePersistentCache(path, data)
-    return data
+      const data = await local.json()
+      jsonMemoryCache.set(path, data)
+      writePersistentCache(path, data)
+      return data
+    } catch (error) {
+      if (signal?.aborted) throw error
+      const cached = readPersistentCache(path)
+      if (cached === null) throw error
+      jsonMemoryCache.set(path, cached)
+      return cached
+    }
   })()
 
   jsonRequestCache.set(path, request)
@@ -105,6 +105,11 @@ export async function fetchJson(path, { signal, force = false } = {}) {
 
 export async function getManifest({ signal, force = false } = {}) {
   return await fetchJson('/manifest.json', { signal, force })
+}
+
+export async function getCachePlan(ver, { signal, force = false } = {}) {
+  if (!ver) throw new Error('缺少 HSR 数据版本，无法读取 cache-plan')
+  return await fetchJson(`/hsr/${ver}/cache-plan.json`, { signal, force })
 }
 
 export async function getHsrVersions({ signal, force = false } = {}) {

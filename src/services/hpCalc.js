@@ -30,7 +30,7 @@ function getValue(obj, key) {
 }
 
 function buildUnknownIcon() {
-  return 'assets/hsr/monstermiddleicon/Monster_Unknown.webp'
+  return ''
 }
 
 function normalizeMonsterKey(ctx, monsterId) {
@@ -54,15 +54,16 @@ function getMonsterMetaRecord(ctx, monsterId) {
 
 function buildMonsterMiddleIcon(monsterId, fallback = '') {
   const raw = toNum(monsterId)
-  const id = raw >= 1e8 ? Math.floor(raw / 100) : raw
-  if (id) return `assets/hsr/monstermiddleicon/Monster_${id}.webp`
+  const baseId = raw >= 1e8 ? Math.floor(raw / 100) : raw
+  const id = baseId % 10 === 0 ? baseId : Math.floor(baseId / 10) * 10
+  if (id) return `/assets/hsr/monsters/Monster_${id}.webp`
   return fallback || buildUnknownIcon()
 }
 
 function buildMonsterMiddleIconFromMeta(meta, monsterId) {
   const rawIcon = String(meta?.icon || '')
   const match = rawIcon.match(/Monster_(\d+)\.(?:png|webp)$/i)
-  if (match?.[1]) return `assets/hsr/monstermiddleicon/Monster_${match[1]}.webp`
+  if (match?.[1]) return `/assets/hsr/monsters/Monster_${match[1]}.webp`
   return buildMonsterMiddleIcon(monsterId, buildUnknownIcon())
 }
 

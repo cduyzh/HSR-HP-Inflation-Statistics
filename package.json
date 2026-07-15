@@ -10,7 +10,8 @@
     "lint": "vite build",
     "netlify:login": "mkdir -p .netlify-config && XDG_CONFIG_HOME=\"$PWD/.netlify-config\" pnpm --package=netlify-cli dlx netlify login",
     "deploy:netlify": "sh ./scripts/deploy-netlify.sh",
-    "sync:data": "node scripts/sync-local-cache.js",
+    "sync:data": "node scripts/sync-shared-data.js",
+    "sync:data:check": "node scripts/sync-shared-data.js --dry-run",
     "audit:moc-phase-hp": "node scripts/audit-moc-phase-hp.js"
   },
   "dependencies": {

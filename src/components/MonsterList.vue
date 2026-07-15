@@ -1,40 +1,38 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, shallowRef } from 'vue'
 import { fmtInt, fmtShort } from '../utils/format'
 
 const props = defineProps({
   stage: { type: Object, default: null },
 })
 
-const base = computed(() => 'https://static.nanoka.cc/')
 const elementMap = {
-  physical: 'physical',
-  fire: 'fire',
-  ice: 'ice',
-  thunder: 'thunder',
-  wind: 'wind',
-  quantum: 'quantum',
-  imaginary: 'imaginary',
+  physical: { label: '物', className: 'physical' },
+  fire: { label: '火', className: 'fire' },
+  ice: { label: '冰', className: 'ice' },
+  thunder: { label: '雷', className: 'thunder' },
+  wind: { label: '风', className: 'wind' },
+  quantum: { label: '量', className: 'quantum' },
+  imaginary: { label: '虚', className: 'imaginary' },
 }
 
 const groups = computed(() => props.stage?.groups || [])
+const failedImageIds = shallowRef(new Set())
 
 function iconUrl(p) {
   if (!p) return ''
-  if (/^https?:\/\//.test(p)) return p
+  if (/^https?:\/\//.test(p)) return ''
   const path = String(p).replace(/^\/+/, '')
-  return `${base.value}${path}`
+  return `/${path}`
 }
 
-function handleImageError(event) {
-  const fallback = iconUrl('assets/hsr/monstermiddleicon/Monster_Unknown.webp')
-  if (event?.target && event.target.src !== fallback) event.target.src = fallback
+function handleImageError(monsterId) {
+  failedImageIds.value = new Set(failedImageIds.value).add(String(monsterId))
 }
 
-function elementIcon(type) {
+function elementInfo(type) {
   const key = String(type || '').toLowerCase()
-  const name = elementMap[key]
-  return name ? `${base.value}assets/hsr/element/${name}.webp` : ''
+  return elementMap[key] || { label: key.slice(0, 1).toUpperCase(), className: 'unknown' }
 }
 
 function totalHp(item) {
@@ -87,8 +85,15 @@ function totalMultiplier(item) {
             <span v-if="m.count > 1" class="count-badge">x{{ m.count }}</span>
             <div class="media">
               <div class="frame">
-                <img v-if="m.icon" class="img" :src="iconUrl(m.icon)" :alt="m.name" loading="lazy" @error="handleImageError" />
-                <div v-else class="img ph" aria-hidden="true"></div>
+                <img
+                  v-if="m.icon && !failedImageIds.has(String(m.id))"
+                  class="img"
+                  :src="iconUrl(m.icon)"
+                  :alt="m.name"
+                  loading="lazy"
+                  @error="handleImageError(m.id)"
+                />
+                <div v-else class="img ph" aria-label="暂无本地怪物图片">暂无图片</div>
               </div>
 
               <div class="meta">
@@ -105,15 +110,14 @@ function totalMultiplier(item) {
               <div v-if="m.weak?.length" class="elements">
                 <span class="attrs-k">弱点</span>
                 <span class="element-list">
-                  <img
+                  <span
                     v-for="type in m.weak"
                     :key="`${m.id}-weak-${type}`"
                     class="el-icon"
-                    :src="elementIcon(type)"
-                    :alt="type"
+                    :class="`is-${elementInfo(type).className}`"
                     :title="type"
-                    loading="lazy"
-                  />
+                    :aria-label="type"
+                  >{{ elementInfo(type).label }}</span>
                 </span>
               </div>
 
@@ -305,7 +309,12 @@ function totalMultiplier(item) {
 .ph {
   width: 100%;
   height: 100%;
+  display: grid;
+  place-items: center;
   background: linear-gradient(135deg, color-mix(in oklab, var(--acc) 18%, transparent), color-mix(in oklab, var(--acc2) 22%, transparent));
+  color: color-mix(in oklab, var(--muted) 88%, white);
+  font-size: 11px;
+  letter-spacing: 0.04em;
 }
 
 .name {
@@ -362,10 +371,26 @@ function totalMultiplier(item) {
 }
 
 .el-icon {
-  width: 18px;
-  height: 18px;
-  object-fit: contain;
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, currentColor 54%, transparent);
+  background: color-mix(in oklab, currentColor 12%, var(--surface-strong));
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
 }
+
+.el-icon.is-physical { color: #d8d8df; }
+.el-icon.is-fire { color: #ff725f; }
+.el-icon.is-ice { color: #6fc8ff; }
+.el-icon.is-thunder { color: #b58cff; }
+.el-icon.is-wind { color: #5fe0bd; }
+.el-icon.is-quantum { color: #7d8cff; }
+.el-icon.is-imaginary { color: #f4d35e; }
+.el-icon.is-unknown { color: var(--muted); }
 
 .resist {
   font-size: 12px;

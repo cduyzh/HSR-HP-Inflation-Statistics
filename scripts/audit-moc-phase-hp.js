@@ -4,7 +4,7 @@ import { calcEventSide } from '../src/services/hpCalc.js'
 
 function parseArgs(argv = []) {
   const options = {
-    version: '4.3.56',
+    version: '',
   }
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -55,8 +55,15 @@ function loadJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
 }
 
+function getLatestLocalVersion() {
+  const manifest = loadJson(path.join('public', 'local-cache', 'manifest.json'))
+  const version = String(manifest?.hsr?.latest || '')
+  if (!version) throw new Error('public/local-cache/manifest.json 缺少 manifest.hsr.latest')
+  return version
+}
+
 function getVersionContext(version) {
-  const cacheRoot = path.join('.hsr-cache', 'hsr', version)
+  const cacheRoot = path.join('public', 'local-cache', 'hsr', version)
   const monster = loadJson(path.join(cacheRoot, 'monster.json'))
   const monstervalue = loadJson(path.join(cacheRoot, 'monstervalue.json'))
   const hardRows = loadJson(path.join(cacheRoot, 'HardLevelGroup.json'))
@@ -128,7 +135,8 @@ export function writeMocPhaseHpAudit(version) {
 }
 
 function main() {
-  const { version } = parseArgs(process.argv.slice(2))
+  const options = parseArgs(process.argv.slice(2))
+  const version = options.version || getLatestLocalVersion()
   const { audit, outputPath } = writeMocPhaseHpAudit(version)
   console.log(`wrote ${outputPath}`)
   console.log(`totalHits=${audit.totalHits}`)
