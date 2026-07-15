@@ -184,7 +184,7 @@ function buildEffects(modeKey, detail) {
   }
 
   if (modeKey === 'peak') {
-    return []
+    return formatEffects(detail?.boss_config?.buff_list)
   }
 
   return []

@@ -4,6 +4,11 @@ import { fmtInt, fmtShort } from '../utils/format'
 
 const props = defineProps({
   stage: { type: Object, default: null },
+  layout: {
+    type: String,
+    default: 'default',
+    validator: value => ['default', 'wave-row'].includes(value),
+  },
 })
 
 const elementMap = {
@@ -58,7 +63,7 @@ function totalMultiplier(item) {
 </script>
 
 <template>
-  <div class="board">
+  <div class="board" :class="{ 'is-wave-row': layout === 'wave-row' }">
     <article v-for="group in groups" :key="group.key" class="node">
       <header class="node-hd">
         <div class="node-title">
@@ -74,76 +79,78 @@ function totalMultiplier(item) {
         <div class="node-sub">{{ group.waves?.length || 0 }} 波 · {{ formatHpExact(group.sideHp) }}</div>
       </header>
 
-      <section v-for="wave in group.waves" :key="`${group.key}-${wave.stageId}-${wave.waveIndex}`" class="wave">
-        <div class="wave-hd">
-          <div class="wave-k">波次 {{ wave.waveIndex }}</div>
-          <div class="wave-v">#{{ wave.stageId }} · Elite {{ wave.eliteGroup }}</div>
-        </div>
+      <div class="waves">
+        <section v-for="wave in group.waves" :key="`${group.key}-${wave.stageId}-${wave.waveIndex}`" class="wave">
+          <div class="wave-hd">
+            <div class="wave-k">波次 {{ wave.waveIndex }}</div>
+            <div class="wave-v">#{{ wave.stageId }} · Elite {{ wave.eliteGroup }}</div>
+          </div>
 
-        <div class="cards">
-          <article v-for="m in wave.monsters" :key="`${wave.stageId}-${wave.waveIndex}-${m.id}`" class="card">
-            <span v-if="m.count > 1" class="count-badge">x{{ m.count }}</span>
-            <div class="media">
-              <div class="frame">
-                <img
-                  v-if="m.icon && !failedImageIds.has(String(m.id))"
-                  class="img"
-                  :src="iconUrl(m.icon)"
-                  :alt="m.name"
-                  loading="lazy"
-                  @error="handleImageError(m.id)"
-                />
-                <div v-else class="img ph" aria-label="暂无本地怪物图片">暂无图片</div>
-              </div>
+          <div class="cards">
+            <article v-for="m in wave.monsters" :key="`${wave.stageId}-${wave.waveIndex}-${m.id}`" class="card">
+              <span v-if="m.count > 1" class="count-badge">x{{ m.count }}</span>
+              <div class="media">
+                <div class="frame">
+                  <img
+                    v-if="m.icon && !failedImageIds.has(String(m.id))"
+                    class="img"
+                    :src="iconUrl(m.icon)"
+                    :alt="m.name"
+                    loading="lazy"
+                    @error="handleImageError(m.id)"
+                  />
+                  <div v-else class="img ph" aria-label="暂无本地怪物图片">暂无图片</div>
+                </div>
 
-              <div class="meta">
-                <div class="name" :title="m.name">{{ m.name }}</div>
-                <div class="sub">
-                  <span class="pill">#{{ m.id }}</span>
-                  <span v-if="m.level" class="pill">Lv. {{ m.level }}</span>
-                  <span v-if="m.hpMultiplier > 1" class="pill accent">HP x{{ m.hpMultiplier }}</span>
+                <div class="meta">
+                  <div class="name" :title="m.name">{{ m.name }}</div>
+                  <div class="sub">
+                    <span class="pill">#{{ m.id }}</span>
+                    <span v-if="m.level" class="pill">Lv. {{ m.level }}</span>
+                    <span v-if="m.hpMultiplier > 1" class="pill accent">HP x{{ m.hpMultiplier }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div class="attrs">
-              <div v-if="m.weak?.length" class="elements">
-                <span class="attrs-k">弱点</span>
-                <span class="element-list">
-                  <span
-                    v-for="type in m.weak"
-                    :key="`${m.id}-weak-${type}`"
-                    class="el-icon"
-                    :class="`is-${elementInfo(type).className}`"
-                    :title="type"
-                    :aria-label="type"
-                  >{{ elementInfo(type).label }}</span>
-                </span>
+              <div class="attrs">
+                <div v-if="m.weak?.length" class="elements">
+                  <span class="attrs-k">弱点</span>
+                  <span class="element-list">
+                    <span
+                      v-for="type in m.weak"
+                      :key="`${m.id}-weak-${type}`"
+                      class="el-icon"
+                      :class="`is-${elementInfo(type).className}`"
+                      :title="type"
+                      :aria-label="type"
+                    >{{ elementInfo(type).label }}</span>
+                  </span>
+                </div>
+
+                <div v-if="m.resist?.length" class="resist">抗性：{{ m.resist.join(' / ') }}</div>
               </div>
 
-              <div v-if="m.resist?.length" class="resist">抗性：{{ m.resist.join(' / ') }}</div>
-            </div>
-
-            <div class="rows">
-              <div class="row">
-                <span class="k">单体HP</span>
-                <span class="v">{{ m.unitHp?.toLocaleString('en-US') }}</span>
+              <div class="rows">
+                <div class="row">
+                  <span class="k">单体HP</span>
+                  <span class="v">{{ m.unitHp?.toLocaleString('en-US') }}</span>
+                </div>
+                <div class="row">
+                  <span class="k">速度 SPD</span>
+                  <span class="v">{{ m.spd?.toLocaleString('en-US') ?? '-' }}</span>
+                </div>
+                <div class="row">
+                  <span class="k">总HP</span>
+                  <span class="v">
+                    {{ totalHp(m).toLocaleString('en-US') }}
+                    <template v-if="totalMultiplier(m) > 1">（{{ m.unitHp?.toLocaleString('en-US') }} × {{ totalMultiplier(m) }}）</template>
+                  </span>
+                </div>
               </div>
-              <div class="row">
-                <span class="k">速度 SPD</span>
-                <span class="v">{{ m.spd?.toLocaleString('en-US') ?? '-' }}</span>
-              </div>
-              <div class="row">
-                <span class="k">总HP</span>
-                <span class="v">
-                  {{ totalHp(m).toLocaleString('en-US') }}
-                  <template v-if="totalMultiplier(m) > 1">（{{ m.unitHp?.toLocaleString('en-US') }} × {{ totalMultiplier(m) }}）</template>
-                </span>
-              </div>
-            </div>
-          </article>
-        </div>
-      </section>
+            </article>
+          </div>
+        </section>
+      </div>
     </article>
   </div>
 </template>
@@ -216,6 +223,10 @@ function totalMultiplier(item) {
 .node-sub {
   font-size: 12px;
   color: color-mix(in oklab, var(--muted) 90%, white);
+}
+
+.waves {
+  min-width: 0;
 }
 
 .wave + .wave {
@@ -423,6 +434,27 @@ function totalMultiplier(item) {
 @media (min-width: 1080px) {
   .board {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .board.is-wave-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .is-wave-row .waves {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+
+  .is-wave-row .wave {
+    min-width: 0;
+  }
+
+  .is-wave-row .wave + .wave {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
   }
 }
 

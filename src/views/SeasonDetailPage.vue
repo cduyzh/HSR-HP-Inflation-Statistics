@@ -99,7 +99,11 @@ const versionLabel = computed(() => (ver.value ? `local-cache · ${ver.value}` :
 const stagePanelTitle = computed(() => '关卡')
 const stagePanelSub = computed(() => '优先显示高难度关卡。')
 const totalLabel = computed(() => (props.mode === 'peak' ? '仲裁项总HP' : '阶段总HP'))
-const effectTitle = computed(() => (props.mode === 'doom' ? '赛季效果' : '本期环境效果'))
+const effectTitle = computed(() => {
+  if (props.mode === 'doom') return '赛季效果'
+  if (props.mode === 'peak') return '赛季增益效果'
+  return '本期环境效果'
+})
 const stageEffectTitle = computed(() => (props.mode === 'peak' ? '当前关卡效果' : '当前阶段补充效果'))
 const seasonTitle = computed(() => data.value?.label || `${modeLabel.value} #${props.id}`)
 const seasonOptions = computed(() => seasons.value.slice().sort((a, b) => b.id - a.id))
@@ -281,9 +285,11 @@ function goSeason(nextId) {
         <div class="block">
           <div class="block-hd">
             <div class="block-title">敌人波次</div>
-            <div class="block-sub">按节点与波次展开，已带上怪物图片、弱点与总HP</div>
+            <div class="block-sub">
+              {{ mode === 'peak' ? '选择左侧关卡后，各波次在右侧横向展开' : '按节点与波次展开，已带上怪物图片、弱点与总HP' }}
+            </div>
           </div>
-          <MonsterList :stage="activeStage" />
+          <MonsterList :stage="activeStage" :layout="mode === 'peak' ? 'wave-row' : 'default'" />
         </div>
       </section>
     </div>
