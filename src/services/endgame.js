@@ -1,9 +1,69 @@
-import { MODES, applyParams, fetchJson, formatEffects, formatStoryEffects, normalizeSeasonList, stripRichText } from './hsrStatic.js'
+import { MODES, applyParams, fetchJson, formatEffects, formatStoryEffects, getActivePublishedReleaseId, normalizeSeasonList, stripRichText } from './hsrStatic.js'
 import { calcEventSide, getHpContext, mergeMonsterCounts } from './hpCalc.js'
+
+const PRECOMPUTED_SCHEMA_VERSION = 1
+const FALLBACK_CONCURRENCY = 6
 
 function toNum(v) {
   const n = Number(v)
   return Number.isFinite(n) ? n : 0
+}
+
+function precomputedTrendPath(ver) {
+  return `/hsr/${ver}/computed/endgame/trends.json`
+}
+
+function precomputedSeasonPath(ver, locale, modeKey, seasonId) {
+  return `/hsr/${ver}/computed/endgame/${locale}/${modeKey}/${seasonId}.json`
+}
+
+function isCompatiblePrecomputedRoot(data, ver) {
+  if (data?.schemaVersion !== PRECOMPUTED_SCHEMA_VERSION || String(data?.ver || '') !== String(ver)) return false
+  const releaseId = getActivePublishedReleaseId()
+  return !releaseId || String(data?.releaseId || '') === releaseId
+}
+
+async function readPrecomputedTrend(modeKey, ver, { signal, force = false } = {}) {
+  try {
+    const data = await fetchJson(precomputedTrendPath(ver), { signal, force })
+    if (!isCompatiblePrecomputedRoot(data, ver)) return null
+    const items = data?.modes?.[modeKey]
+    return Array.isArray(items) ? items : null
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return null
+  }
+}
+
+async function readPrecomputedSeason(modeKey, ver, seasonId, locale, { signal, force = false } = {}) {
+  try {
+    const data = await fetchJson(precomputedSeasonPath(ver, locale, modeKey, seasonId), { signal, force })
+    if (!isCompatiblePrecomputedRoot(data, ver)) return null
+    if (data?.modeKey !== modeKey || toNum(data?.id) !== toNum(seasonId) || !Array.isArray(data?.stages)) return null
+    return data
+  } catch (error) {
+    if (signal?.aborted) throw error
+    return null
+  }
+}
+
+async function mapWithConcurrency(list, limit, mapper) {
+  if (!list.length) return []
+
+  const results = new Array(list.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (nextIndex < list.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await mapper(list[index], index)
+    }
+  }
+
+  const workerCount = Math.min(Math.max(1, limit), list.length)
+  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  return results
 }
 
 export function isStarSeason(modeKey, seasonId) {
@@ -284,6 +344,9 @@ export async function getSeasonComputed(modeKey, ver, seasonId, { locale = 'zh',
   const mode = MODES[modeKey]
   if (!mode) throw new Error(`未知模式：${modeKey}`)
 
+  const precomputed = await readPrecomputedSeason(modeKey, ver, seasonId, locale, { signal, force })
+  if (precomputed) return precomputed
+
   const ctx = await getHpContext(ver, { signal, force })
   const detail = await fetchJson(mode.detailPath(ver, seasonId, locale), { signal, force })
   const stages = pickStages(modeKey, detail)
@@ -318,25 +381,38 @@ function seasonTotalForTrend(modeKey, stages = []) {
 
 export async function getTrend(modeKey, ver, seasons, { signal, onProgress, force = false } = {}) {
   const list = Array.isArray(seasons) ? seasons : []
-  const ctx = await getHpContext(ver, { signal, force })
   const mode = MODES[modeKey]
+  if (!mode) throw new Error(`未知模式：${modeKey}`)
+  if (!list.length) return []
 
-  const items = []
-  for (let i = 0; i < list.length; i += 1) {
-    const season = list[i]
+  const precomputed = await readPrecomputedTrend(modeKey, ver, { signal, force })
+  if (precomputed) {
+    const itemMap = new Map(precomputed.map(item => [toNum(item?.id), item]))
+    const items = list.map(season => itemMap.get(toNum(season?.id ?? season))).filter(Boolean)
+    if (items.length === list.length) {
+      onProgress?.({ done: list.length, total: list.length })
+      return items
+    }
+  }
+
+  const ctx = await getHpContext(ver, { signal, force })
+  let done = 0
+
+  return await mapWithConcurrency(list, FALLBACK_CONCURRENCY, async season => {
     const id = toNum(season?.id ?? season)
     const detail = await fetchJson(mode.detailPath(ver, id, 'zh'), { signal, force })
     const stages = pickStages(modeKey, detail)
     const computedStages = stages.map(stage => computeStage(modeKey, ctx, stage))
 
-    items.push({
+    const item = {
       id,
       label: stripRichText(season?.zh || season?.en || String(id)),
       total: seasonTotalForTrend(modeKey, computedStages),
       isStar: isStarSeason(modeKey, id),
-    })
-    onProgress?.({ done: i + 1, total: list.length, id })
-  }
+    }
 
-  return items
+    done += 1
+    onProgress?.({ done, total: list.length, id })
+    return item
+  })
 }

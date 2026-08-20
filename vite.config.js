@@ -3,6 +3,8 @@ import vue from '@vitejs/plugin-vue'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+const DATA_SITE = process.env.HSR_DATA_SITE_URL || 'https://hsr-data-hub.netlify.app'
+
 export default defineConfig({
   plugins: [
     vue(),
@@ -20,7 +22,7 @@ export default defineConfig({
             const rel = pathname.replace('/__hsr_cache__', '')
             const filePath = path.join(cacheRoot, rel.replace(/^\/+/, ''))
             const force = typeof query === 'string' && query.includes('force=1')
-            const remoteUrl = `https://static.nanoka.cc${rel}`
+            const remoteUrl = `${DATA_SITE}/local-cache${rel}`
 
             if (!force) {
               try {
@@ -56,6 +58,16 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    proxy: {
+      '/local-cache': {
+        target: DATA_SITE,
+        changeOrigin: true,
+      },
+      '/assets/hsr': {
+        target: DATA_SITE,
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     chunkSizeWarningLimit: 2000,

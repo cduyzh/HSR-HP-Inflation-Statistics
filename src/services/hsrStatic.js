@@ -1,6 +1,8 @@
 const JSON_CACHE_PREFIX = 'hsr-endgame:json:'
 const jsonMemoryCache = new Map()
 const jsonRequestCache = new Map()
+let activeReleaseId = 'unversioned'
+let activePublishedReleaseId = ''
 
 export const MODES = {
   moc: {
@@ -34,7 +36,8 @@ export const MODES = {
 }
 
 function getCacheKey(path) {
-  return `${JSON_CACHE_PREFIX}${path}`
+  const releaseKey = path === '/manifest.json' ? 'manifest' : activeReleaseId
+  return `${JSON_CACHE_PREFIX}${releaseKey}:${path}`
 }
 
 function canUseStorage() {
@@ -67,9 +70,10 @@ function writePersistentCache(path, data) {
 }
 
 export async function fetchJson(path, { signal, force = false } = {}) {
-  if (!force && jsonMemoryCache.has(path)) return jsonMemoryCache.get(path)
+  const cacheKey = getCacheKey(path)
+  if (!force && jsonMemoryCache.has(cacheKey)) return jsonMemoryCache.get(cacheKey)
 
-  if (!force && jsonRequestCache.has(path)) return jsonRequestCache.get(path)
+  if (!force && jsonRequestCache.has(cacheKey)) return jsonRequestCache.get(cacheKey)
 
   const request = (async () => {
     if (typeof window === 'undefined') {
@@ -82,29 +86,36 @@ export async function fetchJson(path, { signal, force = false } = {}) {
       if (!isJsonResponse(local)) throw new Error(`本地静态数据格式错误：${path}`)
 
       const data = await local.json()
-      jsonMemoryCache.set(path, data)
+      jsonMemoryCache.set(cacheKey, data)
       writePersistentCache(path, data)
       return data
     } catch (error) {
       if (signal?.aborted) throw error
       const cached = readPersistentCache(path)
       if (cached === null) throw error
-      jsonMemoryCache.set(path, cached)
+      jsonMemoryCache.set(cacheKey, cached)
       return cached
     }
   })()
 
-  jsonRequestCache.set(path, request)
+  jsonRequestCache.set(cacheKey, request)
 
   try {
     return await request
   } finally {
-    jsonRequestCache.delete(path)
+    jsonRequestCache.delete(cacheKey)
   }
 }
 
 export async function getManifest({ signal, force = false } = {}) {
-  return await fetchJson('/manifest.json', { signal, force })
+  const manifest = await fetchJson('/manifest.json', { signal, force })
+  activePublishedReleaseId = String(manifest?.hsr?.releaseId || '')
+  activeReleaseId = activePublishedReleaseId || String(manifest?.hsr?.latest || 'unversioned')
+  return manifest
+}
+
+export function getActivePublishedReleaseId() {
+  return activePublishedReleaseId
 }
 
 export async function getCachePlan(ver, { signal, force = false } = {}) {
@@ -119,6 +130,7 @@ export async function getHsrVersions({ signal, force = false } = {}) {
   return {
     latest: hsr.latest,
     live: hsr.live || hsr.latest,
+    releaseId: hsr.releaseId || '',
     available: Array.isArray(hsr.available) ? hsr.available : [],
   }
 }

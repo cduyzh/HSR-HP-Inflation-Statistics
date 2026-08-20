@@ -108,17 +108,14 @@ watch(
 )
 
 watch(
-  () => [props.mode, ver.value, starFilter.value],
+  () => [props.mode, starFilter.value],
   () => {
     if (!ver.value) return
     load()
   },
 )
 
-onMounted(async () => {
-  await ensureVersion()
-  load()
-})
+onMounted(load)
 
 onBeforeUnmount(stopLoading)
 
@@ -270,7 +267,9 @@ function selectAllSeasons() {
               <div class="bar">
                 <div class="bar-fill" :style="{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }"></div>
               </div>
-              <div class="loading-text">正在计算血量：{{ progress.done }}/{{ progress.total }}</div>
+              <div class="loading-text">
+                {{ progress.total ? `正在准备血量数据：${progress.done}/${progress.total}` : '正在读取预计算血量…' }}
+              </div>
             </div>
             <EChartView v-if="filteredTrend.length" :option="chartOption" :height="340" />
             <div v-else-if="!loading" class="state">

@@ -7,7 +7,7 @@
 - **趋势总览**：四种终局模式的累计 HP 折线图、看板数值、期数列表
 - **赛季详情**：每个赛季的节点 / 波次 / 怪物卡片，含图片、弱点、HP 与多阶段倍率（x2、x3）
 - **星启模式识别**：自动识别并展示「节点 3」与「星启模式」新增关卡
-- **本地优先**：默认读取 `public/local-cache/` 预置 JSON，离线可用且减少网络请求
+- **云端预计算**：优先读取数据中心的趋势与单期 HP 派生数据，缺失时自动回退到前端复算
 - **多阶段 HP 审计**：忘却之庭 boss 的真实总 HP 需乘 `PhaseList.phase_max_hp_ratio` 总和，支持独立审计脚本
 
 ## 技术栈
@@ -39,24 +39,24 @@ pnpm preview
 ## 数据准备
 
 ```bash
-# 校验竞速项目的共享数据是否完整
+# 校验独立数据站协议
 pnpm sync:data:check
 
-# 从竞速项目导入赛季、怪物表与怪物图片
+# 校验数据站；默认不写 public
 pnpm sync:data
 
-# 使用其他本地路径
-pnpm sync:data -- --source /path/to/hsr-endgame-竞速
+# 可选下载离线副本到 .hsr-cache
+pnpm sync:data -- --download .hsr-cache/shared-data
 
 # 单独审计忘却之庭多阶段 HP
 pnpm audit:moc-phase-hp
 ```
 
-统一数据源项目为 `/Users/hobby/Documents/hsr-endgame-竞速`。其自动化更新负责把 `static.nanoka.cc` 的赛季、怪物、角色、光锥等数据同步到本地；当前项目只导入所需的赛季 JSON、怪物基础表和怪物图片，不再独立请求第三方数据或图片。版本使用共享数据的 `manifest.hsr.latest`。
+统一数据源为 `https://hsr-data-hub.netlify.app`。当前项目通过同源 `/local-cache/*` 与 `/assets/hsr/*` 代理读取，不再从竞速仓库复制目录，也不直接请求第三方数据或图片。版本使用共享数据的 `manifest.hsr.latest` 与 `manifest.hsr.releaseId`。
 
 ## `public/local-cache` 数据目录
 
-`public/local-cache/` 是从统一数据源项目复制来的 HSR 终局静态镜像。它保留原始核心路径结构，部署后会以 `/local-cache/...` 形式直接暴露为 JSON；怪物图片同步到 `public/assets/hsr/monsters/`，部署后通过 `/assets/hsr/monsters/...` 访问。
+`/local-cache/` 是独立数据站的兼容协议。数据中心完成发布前，生产部署优先使用仓库内同名目录的离线副本；Netlify 代理只处理本地不存在的路径，避免上游 404 遮蔽已打包文件。怪物图片使用相同策略。
 
 ```text
 public/local-cache/
@@ -73,6 +73,10 @@ public/local-cache/
     ├── maze_peak.json                    # 异相仲裁期数索引
     ├── cache-plan.json                   # 本次落盘计划与已缓存赛季 id
     ├── moc-phase-hp-audit.json           # 忘却之庭多阶段 HP 命中审计
+    ├── computed/
+    │   └── endgame/
+    │       ├── trends.json              # 四种模式的轻量趋势结果
+    │       └── <locale>/<mode>/<id>.json # 单期节点、波次、怪物与 HP 结果
     └── <locale>/
         ├── maze/<id>.json                # 忘却之庭单期详情
         ├── story/<id>.json               # 虚构叙事单期详情
@@ -89,7 +93,7 @@ public/local-cache/
 | `doom` | `maze_boss.json` | `<locale>/boss/<id>.json` | 末日幻影 |
 | `peak` | `maze_peak.json` | `<locale>/peak/<id>.json` | 异相仲裁 |
 
-其他项目接入时可以直接复制该目录到自己的静态资源目录，或读取本项目部署后的 `/local-cache/*` JSON：
+其他项目应直接读取数据站或自己的同源代理，不再复制业务仓库目录：
 
 ```js
 const root = '/local-cache'
@@ -108,6 +112,7 @@ const latestMocDetail = await fetch(`${root}/hsr/${ver}/${locale}/maze/${latestM
 - `cache-plan.json` 记录当前版本、语言、各模式当前赛季 id、已落盘赛季 id 和索引文件名；下游项目应优先用它判断本地是否已有详情 JSON。
 - `manifest.hsr.latest` 是默认版本入口；如果要固定某次数据快照，可直接写死 `hsr/<ver>/...`。
 - 详情 JSON 是上游原始结构镜像，不是本项目聚合后的趋势结果。若要复算 HP，需要结合 `monster.json`、`monstervalue.json`、`HardLevelGroup.json`、`EliteGroup.json` / `InfiniteEliteGroup.json`。
+- 派生数据单独放在 `computed/endgame/`，不回写上游原始详情。根对象必须带 `schemaVersion: 1`、`ver`、`releaseId` 与 `generatedAt`；前端只消费与当前 release 和 schema 兼容的结果。
 - 多阶段敌人的真实 HP 需要乘 `monstervalue.json` 中 `PhaseList.phase_max_hp_ratio` 的总和；可用 `moc-phase-hp-audit.json` 快速核对忘却之庭命中的赛季与怪物。
 - 怪物图片统一读取本站 `/assets/hsr/monsters/Monster_<id>.webp`；9 位实例怪物 id 通常需要回退到基础怪物 id。源站缺图时页面显示本地占位，不再回退第三方地址。
 - 原始期数列表可能包含历史或展示用条目；本项目趋势层还会做“名称相同且 id 差值 ≤ 2 时保留更小 id”的赛季去重。
@@ -118,7 +123,7 @@ const latestMocDetail = await fetch(`${root}/hsr/${ver}/${locale}/maze/${latestM
 pnpm deploy:netlify
 ```
 
-调用 `scripts/deploy-netlify.sh` 完成登录态恢复与生产发布。`netlify.toml` 已配置 `/local-cache/*` 直回源规则，确保缺失 JSON 返回 404 而非 SPA HTML。
+调用 `scripts/deploy-netlify.sh` 完成登录态恢复与生产发布。`netlify.toml` 为 `/local-cache/*`、`/assets/hsr/*` 保留数据站代理，但不强制覆盖 `dist` 中已存在的离线副本。
 
 ## 项目结构
 
@@ -158,6 +163,14 @@ src/
 - **怪物图片**：使用本地 `/assets/hsr/monsters/Monster_{id}.webp`；9 位实例怪物 ID 自动回退到 7 位基础 ID，源站缺图使用本地占位。
 - **怪物数量**：同波次相同怪物聚合计数（x2、x3），总 HP = 单体 HP × 多阶段倍率 × count。
 - **虚构叙事无限波**：优先使用 `infinite_list*.monster_group_id_list` 统计敌人，并合并普通 `monster_list` 中无限波未包含的敌人，避免漏掉虚构集合体等补充怪或覆盖原始波次怪物。
+
+### 血量预计算发布约定
+
+- `hsr-data-hub` 在每次 release 的原始 JSON 同步、校验完成后生成 `computed/endgame/`，并与该 release 原子发布。
+- `trends.json` 根对象使用 `{ schemaVersion, ver, releaseId, generatedAt, modes }`，`modes.moc|fiction|doom|peak` 均为 `{ id, label, total, isStar }[]`。
+- 单期文件在现有 `getSeasonComputed()` 结果上增加 `{ schemaVersion, releaseId, generatedAt }`，保留 `modeKey / ver / id / effects / nodeEffects / stages`。
+- 生成期仍以 `src/services/endgame.js` 的统计口径为准；更改 HP 公式、星启节点或无限波规则时，必须提升 `schemaVersion` 或重建当前 release。
+- 预计算文件不可用时，趋势页使用 6 路受控并发复算，详情页使用原有单期复算，不因数据中心派生件缺失而不可用。
 
 ## 开发约定
 

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:unit": "node --test tests/*.test.js",
     "preview": "vite preview",
     "lint": "vite build",
     "netlify:login": "mkdir -p .netlify-config && XDG_CONFIG_HOME=\"$PWD/.netlify-config\" pnpm --package=netlify-cli dlx netlify login",

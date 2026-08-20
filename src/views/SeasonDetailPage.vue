@@ -68,7 +68,7 @@ async function load() {
 }
 
 watch(
-  () => [props.mode, props.id, ver.value],
+  () => [props.mode, props.id],
   () => {
     if (!ver.value) return
     closeSeasonSwitch()
@@ -76,10 +76,7 @@ watch(
   },
 )
 
-onMounted(async () => {
-  await ensureVersion()
-  load()
-})
+onMounted(load)
 
 onBeforeUnmount(() => {
   stopLoading()
@@ -257,7 +254,7 @@ function goSeason(nextId) {
 
     <div v-else-if="loading" class="state">
       <div class="state-title">正在加载</div>
-      <div class="state-sub">正在拉取赛季数据并计算怪物血量…</div>
+      <div class="state-sub">正在读取赛季与预计算血量数据…</div>
     </div>
 
     <div v-else-if="data" :class="detailClass">
