@@ -39,28 +39,30 @@ pnpm preview
 ## 数据准备
 
 ```bash
-# 校验独立数据站协议
+# 校验独立数据源协议（默认不写本地）
 pnpm sync:data:check
 
-# 校验数据站；默认不写 public
+# 同样执行协议校验（不再复制到 public）
 pnpm sync:data
 
-# 可选下载离线副本到 .hsr-cache
+# 可选下载离线副本到 .hsr-cache（仅排障用，不参与发布）
 pnpm sync:data -- --download .hsr-cache/shared-data
 
 # 单独审计忘却之庭多阶段 HP
 pnpm audit:moc-phase-hp
 ```
 
-统一数据源为 `https://hsr-data-hub.netlify.app`。当前项目通过同源 `/local-cache/*` 与 `/assets/hsr/*` 代理读取，不再从竞速仓库复制目录，也不直接请求第三方数据或图片。版本使用共享数据的 `manifest.hsr.latest` 与 `manifest.hsr.releaseId`。
+统一数据源为 `https://static.nanoka.cc`。页面所有 JSON 与怪物图片均由前端**直连数据源绝对地址**读取（数据源已开放 `Access-Control-Allow-Origin: *`），本站不再代理、不落盘、不随构建发布任何数据文件，以降低 Netlify 带宽与存储占用。版本入口为 `manifest.hsr.latest`；数据源不发布 `releaseId`，缓存隔离回退为版本号。轮播 banner 与 favicon 是本项目自有小体积资源，仍随构建发布。
 
-## `public/local-cache` 数据目录
+## 数据源远程协议（`static.nanoka.cc`）
 
-`/local-cache/` 是独立数据站的兼容协议。数据中心完成发布前，生产部署优先使用仓库内同名目录的离线副本；Netlify 代理只处理本地不存在的路径，避免上游 404 遮蔽已打包文件。怪物图片使用相同策略。
+所有数据与怪物图片都不落盘、不随构建发布，前端直接请求数据源绝对地址：
 
 ```text
-public/local-cache/
+https://static.nanoka.cc/
 ├── manifest.json                         # 全游戏版本索引，HSR 使用 manifest.hsr.latest
+├── assets/hsr/monstermiddleicon/
+│   └── Monster_<id>.webp                 # 怪物中图（页面图片直连地址）
 └── hsr/<ver>/
     ├── monster.json                      # 怪物基础信息：名称、弱点、图标、子 id
     ├── monstervalue.json                 # 怪物数值：HPBase、HPModifyRatio、HardLevelGroup、EliteGroup、PhaseList
@@ -71,12 +73,6 @@ public/local-cache/
     ├── maze_extra.json                   # 虚构叙事期数索引
     ├── maze_boss.json                    # 末日幻影期数索引
     ├── maze_peak.json                    # 异相仲裁期数索引
-    ├── cache-plan.json                   # 本次落盘计划与已缓存赛季 id
-    ├── moc-phase-hp-audit.json           # 忘却之庭多阶段 HP 命中审计
-    ├── computed/
-    │   └── endgame/
-    │       ├── trends.json              # 四种模式的轻量趋势结果
-    │       └── <locale>/<mode>/<id>.json # 单期节点、波次、怪物与 HP 结果
     └── <locale>/
         ├── maze/<id>.json                # 忘却之庭单期详情
         ├── story/<id>.json               # 虚构叙事单期详情
@@ -93,28 +89,27 @@ public/local-cache/
 | `doom` | `maze_boss.json` | `<locale>/boss/<id>.json` | 末日幻影 |
 | `peak` | `maze_peak.json` | `<locale>/peak/<id>.json` | 异相仲裁 |
 
-其他项目应直接读取数据站或自己的同源代理，不再复制业务仓库目录：
+其他项目可直接读取数据源（已开放跨域）：
 
 ```js
-const root = '/local-cache'
+const root = 'https://static.nanoka.cc'
 const manifest = await fetch(`${root}/manifest.json`).then(res => res.json())
 const ver = manifest.hsr.latest
 const locale = 'zh'
 
-const plan = await fetch(`${root}/hsr/${ver}/cache-plan.json`).then(res => res.json())
+// 数据源不发布 cache-plan.json：当前赛季按期数索引去重后的最大 id 推导
 const mocList = await fetch(`${root}/hsr/${ver}/maze.json`).then(res => res.json())
-const latestMocId = plan.currentSeasonIds.moc
+const latestMocId = Math.max(...Object.values(mocList).map(it => Number(it.id)))
 const latestMocDetail = await fetch(`${root}/hsr/${ver}/${locale}/maze/${latestMocId}.json`).then(res => res.json())
 ```
 
 注意事项：
 
-- `cache-plan.json` 记录当前版本、语言、各模式当前赛季 id、已落盘赛季 id 和索引文件名；下游项目应优先用它判断本地是否已有详情 JSON。
-- `manifest.hsr.latest` 是默认版本入口；如果要固定某次数据快照，可直接写死 `hsr/<ver>/...`。
+- `manifest.hsr.latest` 是默认版本入口；数据源不发布 `releaseId` 与 `cache-plan.json`，本项目用版本号做 localStorage 缓存隔离，当前赛季由各期数索引推导。
 - 详情 JSON 是上游原始结构镜像，不是本项目聚合后的趋势结果。若要复算 HP，需要结合 `monster.json`、`monstervalue.json`、`HardLevelGroup.json`、`EliteGroup.json` / `InfiniteEliteGroup.json`。
-- 派生数据单独放在 `computed/endgame/`，不回写上游原始详情。根对象必须带 `schemaVersion: 1`、`ver`、`releaseId` 与 `generatedAt`；前端只消费与当前 release 和 schema 兼容的结果。
-- 多阶段敌人的真实 HP 需要乘 `monstervalue.json` 中 `PhaseList.phase_max_hp_ratio` 的总和；可用 `moc-phase-hp-audit.json` 快速核对忘却之庭命中的赛季与怪物。
-- 怪物图片统一读取本站 `/assets/hsr/monsters/Monster_<id>.webp`；9 位实例怪物 id 通常需要回退到基础怪物 id。源站缺图时页面显示本地占位，不再回退第三方地址。
+- 数据源若发布 `computed/endgame/` 预计算派生件（`schemaVersion: 1`、`ver` 匹配），前端会优先消费；缺失时自动回退到 6 路受控并发实时复算，当前数据源未发布该目录，页面全程使用复算。
+- 多阶段敌人的真实 HP 需要乘 `monstervalue.json` 中 `PhaseList.phase_max_hp_ratio` 的总和。
+- 怪物图片统一读取数据源 `https://static.nanoka.cc/assets/hsr/monstermiddleicon/Monster_<id>.webp`；9 位实例怪物 id 通常需要回退到基础怪物 id。缺图时页面显示占位，不回退其他地址。
 - 原始期数列表可能包含历史或展示用条目；本项目趋势层还会做“名称相同且 id 差值 ≤ 2 时保留更小 id”的赛季去重。
 
 ## 部署
@@ -123,7 +118,7 @@ const latestMocDetail = await fetch(`${root}/hsr/${ver}/${locale}/maze/${latestM
 pnpm deploy:netlify
 ```
 
-调用 `scripts/deploy-netlify.sh` 完成登录态恢复与生产发布。`netlify.toml` 为 `/local-cache/*`、`/assets/hsr/*` 保留数据站代理，但不强制覆盖 `dist` 中已存在的离线副本。
+调用 `scripts/deploy-netlify.sh` 完成登录态恢复与生产发布。`netlify.toml` 只保留 SPA 回退重写；数据与图片由前端直连数据源，不再需要任何代理重定向。
 
 ## 项目结构
 

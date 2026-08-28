@@ -26,7 +26,8 @@ const failedImageIds = shallowRef(new Set())
 
 function iconUrl(p) {
   if (!p) return ''
-  if (/^https?:\/\//.test(p)) return ''
+  // 数据源图片为跨域绝对地址，直接使用；其余保持同源路径。
+  if (/^https?:\/\//.test(p)) return p
   const path = String(p).replace(/^\/+/, '')
   return `/${path}`
 }
@@ -99,7 +100,7 @@ function totalMultiplier(item) {
                     loading="lazy"
                     @error="handleImageError(m.id)"
                   />
-                  <div v-else class="img ph" aria-label="暂无本地怪物图片">暂无图片</div>
+                  <div v-else class="img ph" aria-label="暂无怪物图片">暂无图片</div>
                 </div>
 
                 <div class="meta">

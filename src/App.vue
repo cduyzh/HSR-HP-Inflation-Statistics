@@ -5,10 +5,10 @@
     MODES,
     applyParams,
     fetchJson,
-    getCachePlan,
     getHsrVersions,
     stripRichText,
   } from "./services/hsrStatic";
+  import { getCurrentSeasonIds } from "./services/endgame";
 
   const route = useRoute();
   const router = useRouter();
@@ -143,12 +143,13 @@
 
   async function loadHeroSlides() {
     const versions = await getHsrVersions();
-    const plan = await getCachePlan(versions.latest);
-    const ver = plan?.version || versions.latest;
-    const locale = plan?.locale || "zh";
+    const ver = versions.latest;
+    const locale = "zh";
+    const seasonIds = await getCurrentSeasonIds(ver);
     const slides = await Promise.all(
       bannerModes.map(async (item) => {
-        const seasonId = Number(plan?.currentSeasonIds?.[item.key]);
+        const seasonId = Number(seasonIds?.[item.key]);
+        if (!Number.isFinite(seasonId) || !seasonId) throw new Error(`缺少 ${item.key} 当前赛季`);
         const detail = await fetchJson(
           MODES[item.key].detailPath(ver, seasonId, locale),
         );

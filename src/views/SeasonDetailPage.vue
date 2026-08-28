@@ -92,7 +92,7 @@ const modeLabel = computed(() => {
   return m
 })
 
-const versionLabel = computed(() => (ver.value ? `local-cache · ${ver.value}` : 'local-cache'))
+const versionLabel = computed(() => (ver.value ? `数据版本 · ${ver.value}` : '数据源'))
 const stagePanelTitle = computed(() => '关卡')
 const stagePanelSub = computed(() => '优先显示高难度关卡。')
 const totalLabel = computed(() => (props.mode === 'peak' ? '仲裁项总HP' : '阶段总HP'))

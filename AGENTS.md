@@ -14,9 +14,10 @@
 
 ## 数据来源与版本策略
 
-- 统一数据源：`https://hsr-data-hub.netlify.app`
-- 上游原始数据由 `hsr-data-hub` 抓取和发布；当前项目只消费 `/local-cache/*` 与 `/assets/hsr/*` 同源代理。
-- 版本策略：读取 `manifest.hsr.latest` 与 `manifest.hsr.releaseId`；localStorage 缓存必须按 release 隔离。
+- 统一数据源：`https://static.nanoka.cc`
+- 页面所有 JSON 与怪物图片均由前端**直连数据源绝对地址**读取（数据源已开放 `Access-Control-Allow-Origin: *`）；本站不代理、不落盘、不随构建发布任何数据文件，以降低 Netlify 带宽与存储占用。轮播 banner 与 favicon 是本项目自有小体积资源，仍随构建发布。
+- 版本策略：读取 `manifest.hsr.latest`；数据源不发布 `releaseId`，localStorage 缓存隔离回退为版本号。
+- 数据源不发布 `cache-plan.json`：各模式当前赛季由期数索引去重后的最大 id 推导（`getCurrentSeasonIds()`）。
 - 本项目目的：统计最新数据，不做“版本差异比较”
 
 ## 模式与统计口径
@@ -56,9 +57,9 @@
 
 文件：`src/services/hsrStatic.js`
 
-- 默认读取同源 `/local-cache`并写入按 release 隔离的内存缓存；数据中心未发布完整文件时，Netlify 必须允许 `dist/local-cache` 静态副本优先，不得用上游 404 强制覆盖。
-- 趋势和单期详情优先读取 `/hsr/<ver>/computed/endgame/*` 预计算文件；仅接受 `schemaVersion: 1` 且 `ver` 匹配的结果，否则回退到实时复算。
-- 本地 JSON 仅作离线样本，不是生产真值。
+- `DATA_SITE = 'https://static.nanoka.cc'`：所有 JSON 由 `fetchJson()` 直连该站点读取，并写入按版本号隔离的内存 + localStorage 缓存；请求失败时回退到上一次成功的本地缓存。
+- 趋势和单期详情优先读取 `/hsr/<ver>/computed/endgame/*` 预计算文件（仅接受 `schemaVersion: 1` 且 `ver` 匹配）；当前数据源未发布该目录，全程回退到实时复算。
+- 仓库不再保留本地 JSON 离线副本；`pnpm sync:data -- --download` 只用于排障。
 
 ### HP 计算与怪物信息
 
@@ -67,7 +68,7 @@
 - 读取数据表：`monster.json / monstervalue.json / HardLevelGroup.json / EliteGroup.json / InfiniteEliteGroup.json`
 - HP 公式：`HPBase * HPModifyRatio * HardLevelRatio * EliteRatio`
 - 多阶段血量：若 `monstervalue.json` 存在 `PhaseList`，总 HP 还要乘上所有 `phase_max_hp_ratio` 的和
-- 怪物图片：使用从统一数据源导入的 `/assets/hsr/monsters/Monster_{id}.webp`，实例怪物 9 位 id 自动回退到基础 id；页面不直接请求第三方图片地址。
+- 怪物图片：直连数据源 `https://static.nanoka.cc/assets/hsr/monstermiddleicon/Monster_{id}.webp`，实例怪物 9 位 id 自动回退到基础 id；页面不请求其他第三方图片地址。
 - 怪物数量：同一波次内相同怪物会聚合计数（显示 x2 / x3），总 HP = 单体 HP * 多阶段倍率 * count
 - 虚构叙事无限波：`monster_group_id_list` 是统计主列表，普通 `monster_list` 只作为缺失怪物的兜底补充。
 
@@ -101,19 +102,18 @@
 - `rail` 模式在移动端保留横向滚动能力；在 PC 端优先换行，避免长中文标签彼此遮挡或压进相邻信息卡。
 - 异相仲裁（`peak`）详情页的“关卡”切换按钮按长标签处理，桌面端应允许自动换行，不应为了单行展示牺牲可读性。
 
-## 本地 JSON 预置（落盘）
+## 数据源远程协议（不落盘）
 
-目录：`public/local-cache/`
+数据源：`https://static.nanoka.cc`（已开放跨域）。所有数据与图片直连读取，仓库不再保留本地副本，也不随构建发布。
 
-目的：保留协议说明与可选离线样本。生产数据来自 `hsr-data-hub`，路径结构保持兼容。
+### 路径协议
 
-### 数据目录协议
-
-部署后访问前缀为 `/local-cache/`，源码目录为 `public/local-cache/`。
+前端访问的都是数据源绝对地址（无 `/local-cache` 前缀）。
 
 ```text
-public/local-cache/
+https://static.nanoka.cc/
 ├── manifest.json
+├── assets/hsr/monstermiddleicon/Monster_<id>.webp
 └── hsr/<ver>/
     ├── monster.json
     ├── monstervalue.json
@@ -124,9 +124,7 @@ public/local-cache/
     ├── maze_extra.json
     ├── maze_boss.json
     ├── maze_peak.json
-    ├── cache-plan.json
-    ├── moc-phase-hp-audit.json
-    ├── computed/
+    ├── computed/（数据源未发布，命中 404 后回退复算）
     │   └── endgame/
     │       ├── trends.json
     │       └── <locale>/<mode>/<id>.json
@@ -139,14 +137,12 @@ public/local-cache/
 
 核心入口：
 
-- `manifest.json`：上游版本索引；HSR 默认版本读取 `manifest.hsr.latest`。
-- `cache-plan.json`：本仓库落盘清单；记录 `version`、`locale`、`currentSeasonIds`、`cachedSeasonIds`、`listFiles`。
-- `maze.json / maze_extra.json / maze_boss.json / maze_peak.json`：四种终局模式的期数索引。
+- `manifest.json`：版本索引；HSR 默认版本读取 `manifest.hsr.latest`；无 `releaseId`。
+- `maze.json / maze_extra.json / maze_boss.json / maze_peak.json`：四种终局模式的期数索引；当前赛季取去重后的最大 id。
 - `<locale>/maze|story|boss|peak/<id>.json`：单期详情，是上游原始详情结构镜像。
 - `monster.json / monstervalue.json / HardLevelGroup.json / EliteGroup.json / InfiniteEliteGroup.json`：复算怪物 HP 所需的基础表。
-- `moc-phase-hp-audit.json`：忘却之庭多阶段 HP 命中审计，方便外部项目校验 `PhaseList` 对总血量的影响。
-- `computed/endgame/trends.json`：按模式存放轻量趋势结果；根对象必须带 `schemaVersion / ver / releaseId / generatedAt`。
-- `computed/endgame/<locale>/<mode>/<id>.json`：单期预计算结果，结构与 `getSeasonComputed()` 返回值一致，并附带 release 元数据。
+- `assets/hsr/monstermiddleicon/Monster_<id>.webp`：怪物中图，页面图片直连地址。
+- `computed/endgame/*`：可选预计算派生件；命中时优先消费（`schemaVersion: 1` 且 `ver` 匹配），缺失时回退实时复算。
 
 模式映射：
 
@@ -157,25 +153,24 @@ public/local-cache/
 
 维护约束：
 
-- 不要随意重命名这些 JSON 文件或详情目录；其他项目可按上述路径直接调取。
-- 不要把本项目聚合后的 UI 数据写回详情 JSON；详情 JSON 应保持上游原始结构，聚合逻辑留在 `src/services/endgame.js`。
-- 聚合结果只能作为独立 `computed/endgame/` 派生件发布，与原始 JSON 同 release 生成、校验和切换。
-- 赛季索引、详情、怪物基础表与怪物图片都以 `hsr-data-hub` release 为唯一来源；当前项目不要单独向上游补数据。
-- 新增语言、赛季或怪物图片时，在数据中心更新；当前项目只运行 `pnpm sync:data` 校验协议。
-- 下游项目若只需要最近赛季，应读取 `cache-plan.json` 的 `currentSeasonIds`；若要遍历本地已有数据，应读取 `cachedSeasonIds`。
+- 不要把本项目聚合后的 UI 数据写回数据源；详情 JSON 保持上游原始结构，聚合逻辑留在 `src/services/endgame.js`。
+- 赛季索引、详情、怪物基础表与怪物图片都以数据源为唯一来源；当前项目不要单独向上游补数据。
+- 不要把数据源 JSON 重新下载到 `public/` 发布；这会抵消直连改造带来的带宽收益。
+- 数据源新增语言或赛季时，当前项目只运行 `pnpm sync:data` 校验协议。
+- 下游项目若只需要最近赛季，按期数索引取去重后的最大 id；遍历全量赛季直接读期数索引。
 - HP 复算必须同时考虑 `PhaseList.phase_max_hp_ratio` 多阶段倍率；不要只使用 `HPBase` 单段血量。
 
 更新命令：
 
 ```bash
-# 校验数据站协议，不写 public
+# 校验数据源协议，不写本地
 pnpm sync:data:check
 
-# 同样执行协议校验
+# 同样执行协议校验（不再复制到 public）
 pnpm sync:data
 ```
 
-可覆盖数据站地址或下载离线副本：
+可覆盖数据源地址或下载离线副本（仅排障）：
 
 ```bash
 HSR_DATA_SITE_URL=https://example-data-site.netlify.app pnpm sync:data

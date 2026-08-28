@@ -111,6 +111,24 @@ export async function getSeasons(modeKey, ver, { starFilter = 'all', signal, for
   return seasons
 }
 
+// 当前数据源不发布 cache-plan.json：直接从期数索引推导各模式当前赛季（去重后的最大 id）。
+export async function getCurrentSeasonIds(ver, { signal, force = false } = {}) {
+  const entries = await Promise.all(
+    Object.keys(MODES).map(async modeKey => {
+      const mode = MODES[modeKey]
+      try {
+        const listJson = await fetchJson(mode.listPath(ver), { signal, force })
+        const seasons = dedupeCloseSeasonsByName(normalizeSeasonList(listJson, { idMin: mode.idMin }))
+        return [modeKey, seasons.length ? seasons[seasons.length - 1].id : null]
+      } catch (error) {
+        if (signal?.aborted) throw error
+        return [modeKey, null]
+      }
+    }),
+  )
+  return Object.fromEntries(entries)
+}
+
 function pickMocStages(detail) {
   if (!Array.isArray(detail) || detail.length === 0) return []
   let index = detail.length - 1

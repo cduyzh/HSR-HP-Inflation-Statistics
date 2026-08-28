@@ -45,12 +45,12 @@ const starTabs = [
 ]
 
 const showStarFilter = computed(() => props.mode !== 'peak')
-const versionLabel = computed(() => (ver.value ? `local-cache · ${ver.value}` : 'local-cache'))
+const versionLabel = computed(() => (ver.value ? `数据版本 · ${ver.value}` : '数据源'))
 const selectedSeasonIdSet = computed(() => new Set(selectedSeasonIds.value))
 const filteredTrend = computed(() => trend.value.filter(item => selectedSeasonIdSet.value.has(item.id)))
 const emptyStateSub = computed(() => {
   if (trend.value.length && !filteredTrend.value.length) return '请选择至少 1 期，或使用右侧快捷按钮快速筛选。'
-  return '尝试切换筛选项，或检查本地 local-cache 数据是否完整。'
+  return '尝试切换筛选项，或稍后重试（数据源可能暂时不可用）。'
 })
 
 function stopLoading() {

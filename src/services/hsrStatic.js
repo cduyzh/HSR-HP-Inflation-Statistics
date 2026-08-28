@@ -4,6 +4,16 @@ const jsonRequestCache = new Map()
 let activeReleaseId = 'unversioned'
 let activePublishedReleaseId = ''
 
+// 统一数据源：页面所有 JSON / 图片资源都直接请求该站点，不再经本站代理或落盘发布。
+export const DATA_SITE = 'https://static.nanoka.cc'
+
+// 怪物图片使用数据源现成的中图切图（Monster_<id>.webp），跨域已由数据源放开。
+export const MONSTER_ICON_BASE = `${DATA_SITE}/assets/hsr/monstermiddleicon`
+
+export function dataSourceJsonUrl(path) {
+  return `${DATA_SITE}${path.startsWith('/') ? path : `/${path}`}`
+}
+
 export const MODES = {
   moc: {
     key: 'moc',
@@ -77,13 +87,13 @@ export async function fetchJson(path, { signal, force = false } = {}) {
 
   const request = (async () => {
     if (typeof window === 'undefined') {
-      throw new Error(`当前环境不支持读取本地静态数据：${path}`)
+      throw new Error(`当前环境不支持读取数据源：${path}`)
     }
 
     try {
-      const local = await fetch(`/local-cache${path}`, { signal })
-      if (!local.ok) throw new Error(`本地静态数据缺失：${path}`)
-      if (!isJsonResponse(local)) throw new Error(`本地静态数据格式错误：${path}`)
+      const local = await fetch(dataSourceJsonUrl(path), { signal })
+      if (!local.ok) throw new Error(`数据源缺失：${path}`)
+      if (!isJsonResponse(local)) throw new Error(`数据源格式错误：${path}`)
 
       const data = await local.json()
       jsonMemoryCache.set(cacheKey, data)
@@ -118,11 +128,6 @@ export function getActivePublishedReleaseId() {
   return activePublishedReleaseId
 }
 
-export async function getCachePlan(ver, { signal, force = false } = {}) {
-  if (!ver) throw new Error('缺少 HSR 数据版本，无法读取 cache-plan')
-  return await fetchJson(`/hsr/${ver}/cache-plan.json`, { signal, force })
-}
-
 export async function getHsrVersions({ signal, force = false } = {}) {
   const manifest = await getManifest({ signal, force })
   const hsr = manifest?.hsr
@@ -130,7 +135,8 @@ export async function getHsrVersions({ signal, force = false } = {}) {
   return {
     latest: hsr.latest,
     live: hsr.live || hsr.latest,
-    releaseId: hsr.releaseId || '',
+    // 当前数据源不发布 releaseId，回退到版本号用于缓存隔离。
+    releaseId: hsr.releaseId || hsr.latest,
     available: Array.isArray(hsr.available) ? hsr.available : [],
   }
 }

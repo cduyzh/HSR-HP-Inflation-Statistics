@@ -2,6 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import { calcEventSide } from '../src/services/hpCalc.js'
 
+// 与前端保持一致的统一数据源；审计产物仅写入 .hsr-cache/，不参与发布。
+const DATA_SITE = String(process.env.HSR_DATA_SITE_URL || 'https://static.nanoka.cc').replace(/\/$/, '')
+const OUTPUT_ROOT = path.join('.hsr-cache', 'audit')
+
 function parseArgs(argv = []) {
   const options = {
     version: '',
@@ -51,24 +55,28 @@ function buildEliteMap(rows = []) {
   return new Map(rows.map(row => [Number(row.EliteGroup), Number(row.HPRatio) || 1]))
 }
 
-function loadJson(filePath) {
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'))
+async function fetchJson(relativePath) {
+  const response = await fetch(`${DATA_SITE}${relativePath.startsWith('/') ? relativePath : `/${relativePath}`}`)
+  if (!response.ok) throw new Error(`${relativePath} 请求失败：HTTP ${response.status}`)
+  return response.json()
 }
 
-function getLatestLocalVersion() {
-  const manifest = loadJson(path.join('public', 'local-cache', 'manifest.json'))
+async function getLatestVersion() {
+  const manifest = await fetchJson('manifest.json')
   const version = String(manifest?.hsr?.latest || '')
-  if (!version) throw new Error('public/local-cache/manifest.json 缺少 manifest.hsr.latest')
+  if (!version) throw new Error('manifest.hsr.latest 不存在')
   return version
 }
 
-function getVersionContext(version) {
-  const cacheRoot = path.join('public', 'local-cache', 'hsr', version)
-  const monster = loadJson(path.join(cacheRoot, 'monster.json'))
-  const monstervalue = loadJson(path.join(cacheRoot, 'monstervalue.json'))
-  const hardRows = loadJson(path.join(cacheRoot, 'HardLevelGroup.json'))
-  const eliteRows = loadJson(path.join(cacheRoot, 'EliteGroup.json'))
-  const infiniteEliteRows = loadJson(path.join(cacheRoot, 'InfiniteEliteGroup.json'))
+async function getVersionContext(version) {
+  const base = `hsr/${version}`
+  const [monster, monstervalue, hardRows, eliteRows, infiniteEliteRows] = await Promise.all([
+    fetchJson(`${base}/monster.json`),
+    fetchJson(`${base}/monstervalue.json`),
+    fetchJson(`${base}/HardLevelGroup.json`),
+    fetchJson(`${base}/EliteGroup.json`),
+    fetchJson(`${base}/InfiniteEliteGroup.json`),
+  ])
 
   return {
     monster,
@@ -78,14 +86,23 @@ function getVersionContext(version) {
   }
 }
 
-export function buildAudit(version) {
-  const ctx = getVersionContext(version)
-  const mazeDir = path.join('public', 'local-cache', 'hsr', version, 'zh', 'maze')
-  const files = fs.readdirSync(mazeDir).filter(file => file.endsWith('.json')).sort((a, b) => Number(a) - Number(b))
+export async function buildAudit(version) {
+  const ctx = await getVersionContext(version)
+  const mazeList = await fetchJson(`hsr/${version}/maze.json`)
+  const seasonIds = Object.values(mazeList || {})
+    .map(it => Number(it?.id))
+    .filter(id => Number.isFinite(id) && id >= 1000)
+    .sort((a, b) => a - b)
   const hits = []
 
-  for (const file of files) {
-    const seasonList = loadJson(path.join(mazeDir, file))
+  for (const seasonId of seasonIds) {
+    let seasonList
+    try {
+      seasonList = await fetchJson(`hsr/${version}/zh/maze/${seasonId}.json`)
+    } catch {
+      continue
+    }
+
     const season = pickMocSeason(seasonList)
     if (!season) continue
 
@@ -100,7 +117,7 @@ export function buildAudit(version) {
           if (hpMultiplier <= 1) continue
 
           hits.push({
-            seasonFile: Number(file.replace('.json', '')),
+            seasonFile: seasonId,
             seasonId: Number(season.id) || 0,
             seasonName: season.name || '',
             side: sideKey,
@@ -127,21 +144,25 @@ export function buildAudit(version) {
   }
 }
 
-export function writeMocPhaseHpAudit(version) {
-  const audit = buildAudit(version)
-  const outputPath = path.join('public', 'local-cache', 'hsr', version, 'moc-phase-hp-audit.json')
+export async function writeMocPhaseHpAudit(version) {
+  const audit = await buildAudit(version)
+  const outputPath = path.join(OUTPUT_ROOT, `moc-phase-hp-audit-${version}.json`)
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true })
   fs.writeFileSync(outputPath, `${JSON.stringify(audit, null, 2)}\n`, 'utf8')
   return { audit, outputPath }
 }
 
-function main() {
+async function main() {
   const options = parseArgs(process.argv.slice(2))
-  const version = options.version || getLatestLocalVersion()
-  const { audit, outputPath } = writeMocPhaseHpAudit(version)
+  const version = options.version || (await getLatestVersion())
+  const { audit, outputPath } = await writeMocPhaseHpAudit(version)
   console.log(`wrote ${outputPath}`)
   console.log(`totalHits=${audit.totalHits}`)
 }
 
 if (import.meta.url === new URL(process.argv[1], 'file:').href) {
-  main()
+  main().catch(error => {
+    console.error(error)
+    process.exitCode = 1
+  })
 }

@@ -5,19 +5,8 @@
 [build.environment]
   NODE_VERSION = "24"
 
-[[redirects]]
-  from = "/local-cache/*"
-  to = "https://hsr-data-hub.netlify.app/local-cache/:splat"
-  status = 200
-  # 数据中心尚未发布对应文件时，先使用 dist/local-cache 内的离线副本。
-  force = false
-
-[[redirects]]
-  from = "/assets/hsr/*"
-  to = "https://hsr-data-hub.netlify.app/assets/hsr/:splat"
-  status = 200
-  # 与 JSON 保持相同的静态文件优先策略，避免上游 404 遮蔽已打包图片。
-  force = false
+# 数据与图片均由前端直连数据源（static.nanoka.cc），本站不再代理或落盘，
+# 以降低 Netlify 带宽与存储占用。
 
 [[redirects]]
   from = "/*"

@@ -1,4 +1,4 @@
-import { fetchJson } from './hsrStatic.js'
+import { fetchJson, MONSTER_ICON_BASE } from './hsrStatic.js'
 
 const cache = new Map()
 
@@ -56,14 +56,14 @@ function buildMonsterMiddleIcon(monsterId, fallback = '') {
   const raw = toNum(monsterId)
   const baseId = raw >= 1e8 ? Math.floor(raw / 100) : raw
   const id = baseId % 10 === 0 ? baseId : Math.floor(baseId / 10) * 10
-  if (id) return `/assets/hsr/monsters/Monster_${id}.webp`
+  if (id) return `${MONSTER_ICON_BASE}/Monster_${id}.webp`
   return fallback || buildUnknownIcon()
 }
 
 function buildMonsterMiddleIconFromMeta(meta, monsterId) {
   const rawIcon = String(meta?.icon || '')
   const match = rawIcon.match(/Monster_(\d+)\.(?:png|webp)$/i)
-  if (match?.[1]) return `/assets/hsr/monsters/Monster_${match[1]}.webp`
+  if (match?.[1]) return `${MONSTER_ICON_BASE}/Monster_${match[1]}.webp`
   return buildMonsterMiddleIcon(monsterId, buildUnknownIcon())
 }
 

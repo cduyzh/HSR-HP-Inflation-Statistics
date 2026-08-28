@@ -49,7 +49,7 @@ test('getTrend 优先使用云端预计算结果并保持赛季顺序', async ()
   const result = await getTrend('moc', 'cloud-trend', [{ id: 2 }, { id: 1 }])
 
   assert.deepEqual(result.map(item => item.id), [2, 1])
-  assert.deepEqual(requested, ['/local-cache/hsr/cloud-trend/computed/endgame/trends.json'])
+  assert.deepEqual(requested, ['https://static.nanoka.cc/hsr/cloud-trend/computed/endgame/trends.json'])
 })
 
 test('getSeasonComputed 优先使用按赛季拆分的预计算结果', async () => {
@@ -75,24 +75,25 @@ test('getSeasonComputed 优先使用按赛季拆分的预计算结果', async ()
   const result = await getSeasonComputed('fiction', 'cloud-season', 2025)
 
   assert.equal(result, artifact)
-  assert.deepEqual(requested, ['/local-cache/hsr/cloud-season/computed/endgame/zh/fiction/2025.json'])
+  assert.deepEqual(requested, ['https://static.nanoka.cc/hsr/cloud-season/computed/endgame/zh/fiction/2025.json'])
 })
 
 test('预计算缺失时使用受控并发复算并保持输入顺序', async () => {
   let activeDetailRequests = 0
   let maxActiveDetailRequests = 0
-  const detailPrefix = '/local-cache/hsr/fallback/zh/maze/'
+  const base = 'https://static.nanoka.cc'
+  const detailPrefix = `${base}/hsr/fallback/zh/maze/`
 
   const resources = new Map([
-    ['/local-cache/hsr/fallback/monster.json', { 1001: { zh: '测试怪物', weak: [] } }],
-    ['/local-cache/hsr/fallback/monstervalue.json', { 1001: { HPBase: 100, SpeedBase: 100, child: [] } }],
-    ['/local-cache/hsr/fallback/HardLevelGroup.json', [{ HardLevelGroup: 1, Level: 1, HPRatio: 2 }]],
-    ['/local-cache/hsr/fallback/EliteGroup.json', [{ EliteGroup: 1, HPRatio: 3 }]],
-    ['/local-cache/hsr/fallback/InfiniteEliteGroup.json', []],
+    [`${base}/hsr/fallback/monster.json`, { 1001: { zh: '测试怪物', weak: [] } }],
+    [`${base}/hsr/fallback/monstervalue.json`, { 1001: { HPBase: 100, SpeedBase: 100, child: [] } }],
+    [`${base}/hsr/fallback/HardLevelGroup.json`, [{ HardLevelGroup: 1, Level: 1, HPRatio: 2 }]],
+    [`${base}/hsr/fallback/EliteGroup.json`, [{ EliteGroup: 1, HPRatio: 3 }]],
+    [`${base}/hsr/fallback/InfiniteEliteGroup.json`, []],
   ])
 
   installBrowser(async path => {
-    if (path === '/local-cache/hsr/fallback/computed/endgame/trends.json') return jsonResponse({}, false)
+    if (path === `${base}/hsr/fallback/computed/endgame/trends.json`) return jsonResponse({}, false)
     if (resources.has(path)) return jsonResponse(resources.get(path))
     if (!path.startsWith(detailPrefix)) throw new Error(`未期望的请求：${path}`)
 
