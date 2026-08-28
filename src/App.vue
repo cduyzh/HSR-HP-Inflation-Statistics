@@ -9,6 +9,7 @@
     stripRichText,
   } from "./services/hsrStatic";
   import { getCurrentSeasonIds } from "./services/endgame";
+  import PromoSlot from "./components/PromoSlot.vue";
 
   const route = useRoute();
   const router = useRouter();
@@ -281,6 +282,8 @@
     <main class="main">
       <RouterView />
     </main>
+
+    <PromoSlot />
 
     <footer class="footer">
       <span class="footer-muted"

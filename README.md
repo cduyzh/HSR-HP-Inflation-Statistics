@@ -155,7 +155,7 @@ src/
 
 - **赛季去重**：名称相同且 ID 差值 ≤ 2 时，仅保留更小 ID。
 - **HP 公式**：`HPBase × HPModifyRatio × HardLevelRatio × EliteRatio`；存在 `PhaseList` 时再乘所有 `phase_max_hp_ratio` 之和。
-- **怪物图片**：使用本地 `/assets/hsr/monsters/Monster_{id}.webp`；9 位实例怪物 ID 自动回退到 7 位基础 ID，源站缺图使用本地占位。
+- **怪物图片**：直连数据源 `https://static.nanoka.cc/assets/hsr/monstermiddleicon/Monster_{id}.webp`；9 位实例怪物 ID 自动回退到基础怪物 ID，缺图时页面显示占位，不回退其他地址。
 - **怪物数量**：同波次相同怪物聚合计数（x2、x3），总 HP = 单体 HP × 多阶段倍率 × count。
 - **虚构叙事无限波**：优先使用 `infinite_list*.monster_group_id_list` 统计敌人，并合并普通 `monster_list` 中无限波未包含的敌人，避免漏掉虚构集合体等补充怪或覆盖原始波次怪物。
 

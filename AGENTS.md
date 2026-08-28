@@ -4,6 +4,17 @@
 
 本项目用于统计并可视化《崩坏：星穹铁道》终局内容（忘却之庭 / 虚构叙事 / 末日幻影 / 异相仲裁）不同期数的怪物血量膨胀趋势，并提供“单期详情”查看敌人节点、波次、怪物图片、弱点与血量构成。
 
+## 深入文档
+
+本文件是项目总览；细节按主题拆分在 `docs/agents/`（索引见 `docs/agents/README.md`）：
+
+- `docs/agents/data-source.md`：数据源协议、缓存分层、版本策略、图片与富文本处理
+- `docs/agents/statistics.md`：四模式统计口径、HP 公式、星启节点、无限波、赛季去重
+- `docs/agents/ui-interaction.md`：路由、页面/组件职责、滚动与布局约束
+- `docs/agents/workflow.md`：开发/测试/部署命令、排障手册、常见变更检查清单
+
+改动代码时若涉及口径、协议或交互约束，请同步更新对应文档与本文件。
+
 ## 技术栈
 
 - 前端：Vue 3（`<script setup>`）+ Vue Router 4
