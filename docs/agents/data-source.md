@@ -69,6 +69,7 @@ https://static.nanoka.cc/
 
 - 基址 `MONSTER_ICON_BASE = ${DATA_SITE}/assets/hsr/monstermiddleicon`（`hsrStatic.js:11`）。
 - 图标解析（`src/services/hpCalc.js:55`）：优先用 `monster.json` 里 `meta.icon` 的文件名；否则按 id 推导——9 位及以上实例 id 先除以 100 取基础 id，再向下取整到 10 的倍数。
+- `meta.icon` 支持非数字名（正则 `[0-9A-Za-z_]+`）：如 `虚构集合体 8003060`、`破晓战队 5013090` 的图标为 `Monster_Unknown.png`，对应数据源已发布的 `Monster_Unknown.webp` 占位徽标（与上游站点一致）。
 - 查表同样有 id 归一化：先按原 id 查 `monstervalue/monster`，查不到时回退 `Math.floor(id / 100)`（`normalizeMonsterKey`，`hpCalc.js:36`）。
 - 缺图返回空字符串，由 `MonsterList.vue` 显示占位，**不回退其他第三方图床**。
 

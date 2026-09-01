@@ -325,6 +325,13 @@ function buildSeasonLabel(modeKey, seasonId, detail, effects) {
   return stripRichText(effects?.[0]?.name || `${MODES[modeKey]?.label || modeKey} #${seasonId}`)
 }
 
+function pickInvasion(events = []) {
+  const raw = (events || []).find(it => it?.invasion)?.invasion
+  const level = toNum(raw?.level)
+  if (!level) return null
+  return { level, desc: stripRichText(raw?.desc || '') }
+}
+
 function computeStage(modeKey, ctx, stage) {
   const raw = stage.raw || {}
   const preferInfiniteMonsterList = modeKey === 'fiction'
@@ -335,6 +342,7 @@ function computeStage(modeKey, ctx, stage) {
       preferInfiniteMonsterList,
       preferInfiniteEliteGroup: preferInfiniteMonsterList,
     }),
+    invasion: pickInvasion(group.events),
   }))
 
   const side1 = groups.find(it => it.key === 'side1') || { sideHp: 0, waves: [] }

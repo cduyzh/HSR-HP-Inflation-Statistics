@@ -78,6 +78,10 @@ function totalMultiplier(item) {
           </div>
         </div>
         <div class="node-sub">{{ group.waves?.length || 0 }} 波 · {{ formatHpExact(group.sideHp) }}</div>
+        <div v-if="group.invasion" class="node-invasion">
+          <span class="invasion-badge">污染 {{ group.invasion.level }} 级</span>
+          <p v-if="group.invasion.desc" class="invasion-desc">{{ group.invasion.desc }}</p>
+        </div>
       </header>
 
       <div class="waves">
@@ -224,6 +228,36 @@ function totalMultiplier(item) {
 .node-sub {
   font-size: 12px;
   color: color-mix(in oklab, var(--muted) 90%, white);
+}
+
+.node-invasion {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: color-mix(in oklab, #ff5a5a 8%, var(--surface-strong));
+  border: 1px solid color-mix(in oklab, #ff5a5a 32%, var(--line));
+}
+
+.invasion-badge {
+  justify-self: start;
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: color-mix(in oklab, #ff5a5a 80%, white);
+  border: 1px solid color-mix(in oklab, #ff5a5a 60%, transparent);
+  background: color-mix(in oklab, #ff5a5a 14%, transparent);
+}
+
+.invasion-desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-line;
+  color: color-mix(in oklab, var(--muted) 88%, white);
 }
 
 .waves {

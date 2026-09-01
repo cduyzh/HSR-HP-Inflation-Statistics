@@ -62,7 +62,7 @@ function buildMonsterMiddleIcon(monsterId, fallback = '') {
 
 function buildMonsterMiddleIconFromMeta(meta, monsterId) {
   const rawIcon = String(meta?.icon || '')
-  const match = rawIcon.match(/Monster_(\d+)\.(?:png|webp)$/i)
+  const match = rawIcon.match(/Monster_([0-9A-Za-z_]+)\.(?:png|webp)$/i)
   if (match?.[1]) return `${MONSTER_ICON_BASE}/Monster_${match[1]}.webp`
   return buildMonsterMiddleIcon(monsterId, buildUnknownIcon())
 }

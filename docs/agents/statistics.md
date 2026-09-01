@@ -78,6 +78,10 @@ phaseMultiplier = Σ PhaseList[].phase_max_hp_ratio（为 0 时按 1）
 - 敌人列表以 `infinite_list*.monster_group_id_list` 为主，再补入普通 `monster_list` 中无限波没有的怪物（`listWaveMonsters`，`hpCalc.js:133`）。不要只取其一——会漏掉 `8003060` 虚构集合体这类补充怪，或覆盖原始波次怪物。
 - 精英组优先级：`event.elite_group` → `infiniteWave.elite_group`；且启用 `+296` 映射（`resolveInfiniteEliteGroup`，`hpCalc.js:126`）：若 `eliteGroup + 296` 在表中存在则用映射后的倍率。
 
+### 污染等级（invasion）
+
+虚构叙事 `2026` 起，节点事件对象带 `invasion` 字段（`{ level, desc, maze_buff_id, ... }`）。`computeStage` 通过 `pickInvasion`（`endgame.js`）取分组内第一个带 `invasion` 的事件，仅保留 `level` 与清洗后的 `desc` 挂到 `group.invasion`；无则为 `null`。`MonsterList` 在节点头部渲染“污染 N 级”徽标与描述。只提取展示所需字段，`maze_buff_param / monster_param / monster_list` 不进入 UI 数据。
+
 ## 趋势数值
 
 `seasonTotalForTrend()`（`endgame.js:395`）：
