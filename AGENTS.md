@@ -98,6 +98,7 @@
 - `src/views/HpTrendsPage.vue`：趋势页（看板 + 折线图 + 期数列表）
 - `src/views/SeasonDetailPage.vue`：赛季详情页（效果 + 节点/波次怪物卡片）
 - `src/components/MonsterList.vue`：节点/波次怪物卡片渲染（图片/弱点/HP/xN）
+- `src/components/ChangelogModal.vue`：站点更新记录弹窗（页脚入口 + 时间线展示，数据维护见 `src/data/changelog.js` 与 `docs/agents/ui-interaction.md`）
 
 ### 当前交互约束
 

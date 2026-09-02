@@ -9,10 +9,28 @@
     stripRichText,
   } from "./services/hsrStatic";
   import { getCurrentSeasonIds } from "./services/endgame";
+  import {
+    APP_VERSION,
+    hasUnreadChangelog,
+    markChangelogSeen,
+  } from "./data/changelog";
   import PromoSlot from "./components/PromoSlot.vue";
+  import ChangelogModal from "./components/ChangelogModal.vue";
 
   const route = useRoute();
   const router = useRouter();
+
+  const appVersion = APP_VERSION;
+  const changelogUnread = ref(hasUnreadChangelog());
+  const changelogOpen = ref(false);
+
+  function openChangelog() {
+    changelogOpen.value = true;
+    if (changelogUnread.value) {
+      markChangelogSeen();
+      changelogUnread.value = false;
+    }
+  }
 
   const mode = computed(() => {
     if (route.name === "trends") return route.params.mode;
@@ -129,8 +147,9 @@
     }
 
     return (
-      stripRichText(detail?.name || detail?.group_name || detail?.zh || detail?.en || "") ||
-      `${MODES[modeKey]?.label || modeKey} #${seasonId}`
+      stripRichText(
+        detail?.name || detail?.group_name || detail?.zh || detail?.en || "",
+      ) || `${MODES[modeKey]?.label || modeKey} #${seasonId}`
     );
   }
 
@@ -150,7 +169,8 @@
     const slides = await Promise.all(
       bannerModes.map(async (item) => {
         const seasonId = Number(seasonIds?.[item.key]);
-        if (!Number.isFinite(seasonId) || !seasonId) throw new Error(`缺少 ${item.key} 当前赛季`);
+        if (!Number.isFinite(seasonId) || !seasonId)
+          throw new Error(`缺少 ${item.key} 当前赛季`);
         const detail = await fetchJson(
           MODES[item.key].detailPath(ver, seasonId, locale),
         );
@@ -169,7 +189,10 @@
     );
 
     heroSlides.value = slides;
-    activeSlideIndex.value = Math.min(activeSlideIndex.value, slides.length - 1);
+    activeSlideIndex.value = Math.min(
+      activeSlideIndex.value,
+      slides.length - 1,
+    );
   }
 
   function selectSlide(index) {
@@ -289,7 +312,24 @@
       <span class="footer-muted"
         >提示：首次加载会拉取并计算大量怪物数值，建议等缓存建立后再切换版本。</span
       >
+      <button
+        class="footer-changelog"
+        type="button"
+        aria-label="查看站点更新记录"
+        @click="openChangelog">
+        <span class="footer-changelog-label">更新记录</span>
+        <span class="footer-changelog-ver">v{{ appVersion }}</span>
+        <span
+          v-if="changelogUnread"
+          class="footer-changelog-new"
+          >NEW</span
+        >
+      </button>
     </footer>
+
+    <ChangelogModal
+      :open="changelogOpen"
+      @close="changelogOpen = false" />
   </div>
 </template>
 
@@ -653,6 +693,11 @@
   }
 
   .footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
     padding: 14px;
     color: var(--muted);
     font-size: 12px;
@@ -664,6 +709,55 @@
     display: inline-block;
     max-width: 72ch;
     line-height: 1.5;
+  }
+
+  .footer-changelog {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 36px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--line) 74%, transparent);
+    background: color-mix(in oklab, var(--surface-soft) 86%, transparent);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 680;
+    cursor: pointer;
+    white-space: nowrap;
+    transition:
+      color 160ms ease,
+      border-color 160ms ease,
+      background 160ms ease;
+  }
+
+  .footer-changelog:hover,
+  .footer-changelog:focus-visible {
+    color: var(--text);
+    border-color: color-mix(in oklab, var(--acc2) 52%, var(--line));
+    background: color-mix(in oklab, var(--acc2) 8%, var(--surface-soft));
+    outline: none;
+  }
+
+  .footer-changelog-ver {
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in oklab, var(--line-strong) 52%, transparent);
+    background: color-mix(in oklab, var(--line-strong) 10%, transparent);
+    color: color-mix(in oklab, var(--text) 92%, transparent);
+    font-family:
+      ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 660;
+  }
+
+  .footer-changelog-new {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--acc), var(--acc2));
+    color: #0a1828;
+    font-size: 10px;
+    font-weight: 780;
+    letter-spacing: 0.04em;
   }
 
   @media (min-width: 980px) {

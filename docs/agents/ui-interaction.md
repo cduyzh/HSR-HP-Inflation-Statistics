@@ -6,11 +6,11 @@
 
 `src/router/index.js`：
 
-| 路径 | 页面 | 说明 |
-| --- | --- | --- |
-| `/` | — | 重定向 `/trends/moc` |
-| `/trends/:mode` | `HpTrendsPage` | mode ∈ moc/fiction/doom/peak |
-| `/season/:mode/:id` | `SeasonDetailPage` | id 转 Number 传入 |
+| 路径                | 页面               | 说明                         |
+| ------------------- | ------------------ | ---------------------------- |
+| `/`                 | —                  | 重定向 `/trends/moc`         |
+| `/trends/:mode`     | `HpTrendsPage`     | mode ∈ moc/fiction/doom/peak |
+| `/season/:mode/:id` | `SeasonDetailPage` | id 转 Number 传入            |
 
 `scrollBehavior()` 返回 `false`：**路由不接管滚动**。模式切换、进详情、返回都保持浏览器当前滚动位置。改动滚动策略前必须先验证趋势页 ↔ 详情页的滚动连续性。
 
@@ -19,6 +19,7 @@
 ### App.vue（外壳）
 
 - 固定模式切换栏 + 普通文档流轮播 banner（`public/banners/*` 自有资源）。banner 是静态数组配置，含模式标签、标题、备注与跳转链接。
+- 页脚维护“更新记录”入口（`footer-changelog` 按钮）：展示站点版本号，有未读版本时带 `NEW` 徽标；点击打开 `ChangelogModal`。
 - **不要**恢复“顶部大区随滚动自动收起”的旧交互——会遮挡 PC 阅读区。
 
 ### HpTrendsPage.vue（趋势页）
@@ -37,14 +38,15 @@
 
 ## 组件约定
 
-| 组件 | 职责 | 关键点 |
-| --- | --- | --- |
-| `EChartView.vue` | ECharts 封装 | 接收 option，负责 resize 与销毁 |
-| `MonsterList.vue` | 节点/波次怪物卡片 | 图片直连数据源，缺图占位；弱点、HP、xN 聚合、多阶段倍率标记 |
-| `SeasonRail.vue` | 期数列表 | 多选（`toggle`）、`select-recent/select-all`、`open` 进详情 |
-| `SegmentTabs.vue` | 模式/关卡切换 | `layout="fill"` 等宽铺满；默认 `rail` 长标签 |
-| `StatCard.vue` | 看板数值卡 | 纯展示 |
-| `EffectList.vue` | 环境/赛季效果 | 纯展示 `{ name, desc }[]` |
+| 组件                 | 职责              | 关键点                                                                                        |
+| -------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
+| `EChartView.vue`     | ECharts 封装      | 接收 option，负责 resize 与销毁                                                               |
+| `MonsterList.vue`    | 节点/波次怪物卡片 | 图片直连数据源，缺图占位；弱点、HP、xN 聚合、多阶段倍率标记                                   |
+| `SeasonRail.vue`     | 期数列表          | 多选（`toggle`）、`select-recent/select-all`、`open` 进详情                                   |
+| `SegmentTabs.vue`    | 模式/关卡切换     | `layout="fill"` 等宽铺满；默认 `rail` 长标签                                                  |
+| `StatCard.vue`       | 看板数值卡        | 纯展示                                                                                        |
+| `EffectList.vue`     | 环境/赛季效果     | 纯展示 `{ name, desc }[]`                                                                     |
+| `ChangelogModal.vue` | 站点更新记录弹窗  | Props `open`，Emits `close`；Esc/遮罩点击关闭；打开时锁定 body 滚动并补偿滚动条宽度，关闭恢复 |
 
 ### SegmentTabs 布局
 
@@ -55,6 +57,15 @@
 ## 格式化
 
 `src/utils/format.js`：`fmtInt`（千分位）、`fmtShort`（K/M/B，两位小数裁零）、`fmtPct`（×100 百分比）、`clamp`、`safeText`。展示数值统一走这里，不要手写 toLocaleString。
+
+## 站点版本记录
+
+- 数据源：`src/data/changelog.js` 是唯一数据源；`CHANGELOG` 数组按**新版本在前**排列，站点版本号 `APP_VERSION` 直接取 `CHANGELOG[0].version` 派生，禁止在别处再维护一份版本常量。
+- 发布新版本：只需在数组头部插入一条 `{ version, date, title, items }`；`items[].type` 取 `feature / improve / fix / docs`，对应弹窗内的功能/优化/修复/文档徽标。
+- 版本号语义化：新增功能升 minor（x.Y.z），修复/文案微调升 patch（x.y.Z）。
+- 未读提示：localStorage key `hsr-endgame:changelog-seen-version` 记录已读版本，由 `hasUnreadChangelog()` / `markChangelogSeen()` 读写；打开弹窗即标记已读。
+- 展示形态：页脚按钮 + `ChangelogModal` 弹窗时间线，**不新增路由**，避免影响路由滚动连续性；弹窗为 fixed 覆盖层，打开时锁定 body 滚动并补偿滚动条宽度。
+- 注意区分：hero 区“当前版本”meta 卡展示的是游戏数据版本（`manifest.hsr.latest`），页脚展示的是站点版本，二者互不相干。
 
 ## 交互约束清单
 
