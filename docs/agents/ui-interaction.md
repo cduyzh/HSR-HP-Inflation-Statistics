@@ -33,6 +33,7 @@
 - 展示整期效果 + 关卡切换（仅 peak 显示）+ 各节点的怪物卡片（`MonsterList`）；doom 有按节点分栏的效果（`EffectList`）。
 - 有赛季切换浮层（`switchOpen`），可跳相邻赛季。
 - **加载态必须保留足够页面高度**：页面瞬时变短会把浏览器当前滚动值夹断，返回时位置丢失。
+- **peak 模式约束**：顶部“赛季增益效果”区块（标题为 `data.effects`，源是 `detail.boss_config.buff_list`）只在选中 `boss_level`（将杀王棋）或 `boss_config`（将杀王棋·绝境）时才渲染，对应 stage 携带 `isBossStage: true` 标记；选中前置关卡时该区块隐藏，`activeStage.effects`（当前关卡效果）不受影响。
 
 ## 组件约定
 

@@ -1,5 +1,5 @@
-import { MODES, applyParams, fetchJson, formatEffects, formatStoryEffects, getActivePublishedReleaseId, normalizeSeasonList, stripRichText } from './hsrStatic.js'
-import { calcEventSide, getHpContext, mergeMonsterCounts } from './hpCalc.js'
+import {MODES, applyParams, fetchJson, formatEffects, formatStoryEffects, getActivePublishedReleaseId, normalizeSeasonList, stripRichText} from './hsrStatic.js'
+import {calcEventSide, getHpContext, mergeMonsterCounts} from './hpCalc.js'
 
 const PRECOMPUTED_SCHEMA_VERSION = 1
 const FALLBACK_CONCURRENCY = 6
@@ -23,9 +23,9 @@ function isCompatiblePrecomputedRoot(data, ver) {
   return !releaseId || String(data?.releaseId || '') === releaseId
 }
 
-async function readPrecomputedTrend(modeKey, ver, { signal, force = false } = {}) {
+async function readPrecomputedTrend(modeKey, ver, {signal, force = false} = {}) {
   try {
-    const data = await fetchJson(precomputedTrendPath(ver), { signal, force })
+    const data = await fetchJson(precomputedTrendPath(ver), {signal, force})
     if (!isCompatiblePrecomputedRoot(data, ver)) return null
     const items = data?.modes?.[modeKey]
     return Array.isArray(items) ? items : null
@@ -35,9 +35,9 @@ async function readPrecomputedTrend(modeKey, ver, { signal, force = false } = {}
   }
 }
 
-async function readPrecomputedSeason(modeKey, ver, seasonId, locale, { signal, force = false } = {}) {
+async function readPrecomputedSeason(modeKey, ver, seasonId, locale, {signal, force = false} = {}) {
   try {
-    const data = await fetchJson(precomputedSeasonPath(ver, locale, modeKey, seasonId), { signal, force })
+    const data = await fetchJson(precomputedSeasonPath(ver, locale, modeKey, seasonId), {signal, force})
     if (!isCompatiblePrecomputedRoot(data, ver)) return null
     if (data?.modeKey !== modeKey || toNum(data?.id) !== toNum(seasonId) || !Array.isArray(data?.stages)) return null
     return data
@@ -62,7 +62,7 @@ async function mapWithConcurrency(list, limit, mapper) {
   }
 
   const workerCount = Math.min(Math.max(1, limit), list.length)
-  await Promise.all(Array.from({ length: workerCount }, () => worker()))
+  await Promise.all(Array.from({length: workerCount}, () => worker()))
   return results
 }
 
@@ -95,12 +95,12 @@ function dedupeCloseSeasonsByName(seasons = []) {
   return out
 }
 
-export async function getSeasons(modeKey, ver, { starFilter = 'all', signal, force = false } = {}) {
+export async function getSeasons(modeKey, ver, {starFilter = 'all', signal, force = false} = {}) {
   const mode = MODES[modeKey]
   if (!mode) throw new Error(`未知模式：${modeKey}`)
 
-  const listJson = await fetchJson(mode.listPath(ver), { signal, force })
-  const seasons = dedupeCloseSeasonsByName(normalizeSeasonList(listJson, { idMin: mode.idMin })).map(it => ({
+  const listJson = await fetchJson(mode.listPath(ver), {signal, force})
+  const seasons = dedupeCloseSeasonsByName(normalizeSeasonList(listJson, {idMin: mode.idMin})).map(it => ({
     ...it,
     isStar: isStarSeason(modeKey, it.id),
   }))
@@ -112,13 +112,13 @@ export async function getSeasons(modeKey, ver, { starFilter = 'all', signal, for
 }
 
 // 当前数据源不发布 cache-plan.json：直接从期数索引推导各模式当前赛季（去重后的最大 id）。
-export async function getCurrentSeasonIds(ver, { signal, force = false } = {}) {
+export async function getCurrentSeasonIds(ver, {signal, force = false} = {}) {
   const entries = await Promise.all(
     Object.keys(MODES).map(async modeKey => {
       const mode = MODES[modeKey]
       try {
-        const listJson = await fetchJson(mode.listPath(ver), { signal, force })
-        const seasons = dedupeCloseSeasonsByName(normalizeSeasonList(listJson, { idMin: mode.idMin }))
+        const listJson = await fetchJson(mode.listPath(ver), {signal, force})
+        const seasons = dedupeCloseSeasonsByName(normalizeSeasonList(listJson, {idMin: mode.idMin}))
         return [modeKey, seasons.length ? seasons[seasons.length - 1].id : null]
       } catch (error) {
         if (signal?.aborted) throw error
@@ -143,7 +143,7 @@ function pickMocStages(detail) {
   const it = detail[index]
   const extra = detail[index + 1]
 
-  const raw = { ...(it || {}) }
+  const raw = {...(it || {})}
   const extraName = stripRichText(extra?.name || extra?.group_name || extra?.zh || extra?.en || '')
   if (extra && !extraName.trim() && Array.isArray(extra?.event_id_list) && extra.event_id_list.length) {
     raw.event_id_list3 = extra.event_id_list
@@ -165,7 +165,7 @@ function pickStoryStages(detail) {
   const it = levels[index]
   if (!it) return []
   const extra = levels[index + 1]
-  const raw = { ...(it || {}) }
+  const raw = {...(it || {})}
   const extraName = stripRichText(extra?.name || extra?.group_name || extra?.zh || extra?.en || '')
   if (extra && !extraName.trim() && Array.isArray(extra?.event_id_list) && extra.event_id_list.length) {
     raw.event_id_list3 = extra.event_id_list
@@ -187,7 +187,7 @@ function pickBossStages(detail) {
   const it = levels[index]
   if (!it) return []
   const extra = levels[index + 1]
-  const raw = { ...(it || {}) }
+  const raw = {...(it || {})}
   const extraName = stripRichText(extra?.name || extra?.group_name || extra?.zh || extra?.en || '')
   if (extra && !extraName.trim() && Array.isArray(extra?.event_id_list) && extra.event_id_list.length) {
     raw.event_id_list3 = extra.event_id_list
@@ -214,6 +214,7 @@ function pickPeakStages(detail) {
       stageNo: i + 1,
       name: stripRichText(it.name ? String(it.name) : `关卡 ${i + 1}`),
       raw: it,
+      isBossStage: false,
     })
   }
 
@@ -223,6 +224,7 @@ function pickPeakStages(detail) {
       stageNo: out.length + 1,
       name: stripRichText(detail.boss_level?.name || '将杀王棋'),
       raw: detail.boss_level,
+      isBossStage: true,
     })
   }
 
@@ -232,6 +234,7 @@ function pickPeakStages(detail) {
       stageNo: out.length + 1,
       name: stripRichText(detail.boss_config?.hard_name || '将杀王棋·绝境'),
       raw: detail.boss_config,
+      isBossStage: true,
     })
   }
 
@@ -252,12 +255,12 @@ function buildEffects(modeKey, detail) {
     if (!first) return []
     const name = first.group_name || first.name || '本期效果'
     const desc = applyParams(first.desc || '', first.param || [])
-    return [{ name, desc }].filter(it => it.name || it.desc)
+    return [{name, desc}].filter(it => it.name || it.desc)
   }
 
   if (modeKey === 'fiction') return formatStoryEffects(detail)
   if (modeKey === 'doom') {
-    const main = detail?.buff ? [{ name: detail.buff?.name, desc: applyParams(detail.buff?.desc, detail.buff?.param) }] : []
+    const main = detail?.buff ? [{name: detail.buff?.name, desc: applyParams(detail.buff?.desc, detail.buff?.param)}] : []
     return [...main].filter(it => it.name || it.desc)
   }
 
@@ -329,7 +332,7 @@ function pickInvasion(events = []) {
   const raw = (events || []).find(it => it?.invasion)?.invasion
   const level = toNum(raw?.level)
   if (!level) return null
-  return { level, desc: stripRichText(raw?.desc || '') }
+  return {level, desc: stripRichText(raw?.desc || '')}
 }
 
 function computeStage(modeKey, ctx, stage) {
@@ -345,8 +348,8 @@ function computeStage(modeKey, ctx, stage) {
     invasion: pickInvasion(group.events),
   }))
 
-  const side1 = groups.find(it => it.key === 'side1') || { sideHp: 0, waves: [] }
-  const side2 = groups.find(it => it.key === 'side2') || { sideHp: 0, waves: [] }
+  const side1 = groups.find(it => it.key === 'side1') || {sideHp: 0, waves: []}
+  const side2 = groups.find(it => it.key === 'side2') || {sideHp: 0, waves: []}
   const extras = groups.filter(it => it.key !== 'side1' && it.key !== 'side2' && it.key !== 'side3')
   const allMonsters = groups.flatMap(it => flatMonstersFromWaves(it.waves))
 
@@ -354,6 +357,7 @@ function computeStage(modeKey, ctx, stage) {
     key: stage.key,
     stageNo: stage.stageNo,
     name: stage.name,
+    isBossStage: Boolean(stage.isBossStage),
     groups,
     effects: buildStageEffects(raw),
     side1,
@@ -366,15 +370,15 @@ function computeStage(modeKey, ctx, stage) {
   }
 }
 
-export async function getSeasonComputed(modeKey, ver, seasonId, { locale = 'zh', signal, force = false } = {}) {
+export async function getSeasonComputed(modeKey, ver, seasonId, {locale = 'zh', signal, force = false} = {}) {
   const mode = MODES[modeKey]
   if (!mode) throw new Error(`未知模式：${modeKey}`)
 
-  const precomputed = await readPrecomputedSeason(modeKey, ver, seasonId, locale, { signal, force })
+  const precomputed = await readPrecomputedSeason(modeKey, ver, seasonId, locale, {signal, force})
   if (precomputed) return precomputed
 
-  const ctx = await getHpContext(ver, { signal, force })
-  const detail = await fetchJson(mode.detailPath(ver, seasonId, locale), { signal, force })
+  const ctx = await getHpContext(ver, {signal, force})
+  const detail = await fetchJson(mode.detailPath(ver, seasonId, locale), {signal, force})
   const stages = pickStages(modeKey, detail)
   const effects = buildEffects(modeKey, detail)
   const computedStages = stages.map(stage => computeStage(modeKey, ctx, stage))
@@ -382,10 +386,10 @@ export async function getSeasonComputed(modeKey, ver, seasonId, { locale = 'zh',
   const nodeEffects =
     modeKey === 'doom'
       ? {
-          side1: formatEffects(detail?.buff_list1),
-          side2: formatEffects(detail?.buff_list2),
-          side3: formatEffects(detail?.buff_list3),
-        }
+        side1: formatEffects(detail?.buff_list1),
+        side2: formatEffects(detail?.buff_list2),
+        side3: formatEffects(detail?.buff_list3),
+      }
       : null
 
   return {
@@ -405,28 +409,28 @@ function seasonTotalForTrend(modeKey, stages = []) {
   return stages[stages.length - 1]?.totalHp || 0
 }
 
-export async function getTrend(modeKey, ver, seasons, { signal, onProgress, force = false } = {}) {
+export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force = false} = {}) {
   const list = Array.isArray(seasons) ? seasons : []
   const mode = MODES[modeKey]
   if (!mode) throw new Error(`未知模式：${modeKey}`)
   if (!list.length) return []
 
-  const precomputed = await readPrecomputedTrend(modeKey, ver, { signal, force })
+  const precomputed = await readPrecomputedTrend(modeKey, ver, {signal, force})
   if (precomputed) {
     const itemMap = new Map(precomputed.map(item => [toNum(item?.id), item]))
     const items = list.map(season => itemMap.get(toNum(season?.id ?? season))).filter(Boolean)
     if (items.length === list.length) {
-      onProgress?.({ done: list.length, total: list.length })
+      onProgress?.({done: list.length, total: list.length})
       return items
     }
   }
 
-  const ctx = await getHpContext(ver, { signal, force })
+  const ctx = await getHpContext(ver, {signal, force})
   let done = 0
 
   return await mapWithConcurrency(list, FALLBACK_CONCURRENCY, async season => {
     const id = toNum(season?.id ?? season)
-    const detail = await fetchJson(mode.detailPath(ver, id, 'zh'), { signal, force })
+    const detail = await fetchJson(mode.detailPath(ver, id, 'zh'), {signal, force})
     const stages = pickStages(modeKey, detail)
     const computedStages = stages.map(stage => computeStage(modeKey, ctx, stage))
 
@@ -438,7 +442,7 @@ export async function getTrend(modeKey, ver, seasons, { signal, onProgress, forc
     }
 
     done += 1
-    onProgress?.({ done, total: list.length, id })
+    onProgress?.({done, total: list.length, id})
     return item
   })
 }
