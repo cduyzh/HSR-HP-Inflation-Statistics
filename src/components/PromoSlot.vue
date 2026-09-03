@@ -46,14 +46,7 @@
 
 <style scoped>
   .promo-slot {
-    padding: 10px 14px;
-    border-bottom: 1px solid color-mix(in oklab, var(--line) 60%, transparent);
-    background: linear-gradient(
-      90deg,
-      color-mix(in oklab, var(--acc2) 14%, transparent),
-      color-mix(in oklab, var(--acc) 8%, transparent) 60%,
-      transparent
-    );
+    margin-bottom: 12px;
   }
 
   .promo-slot-link {
@@ -63,7 +56,7 @@
     min-height: 46px;
     padding: 8px 14px;
     border-radius: 18px;
-    border: 1px solid color-mix(in oklab, var(--line-strong) 60%, transparent);
+    border: 1px solid color-mix(in oklab, var(--acc2) 42%, var(--line-strong));
     background:
       linear-gradient(180deg, var(--surface-soft), var(--surface)),
       radial-gradient(
@@ -73,7 +66,9 @@
       );
     text-decoration: none;
     color: inherit;
-    box-shadow: var(--shadow-soft);
+    box-shadow:
+      var(--shadow-soft),
+      0 0 0 1px color-mix(in oklab, var(--acc2) 14%, transparent);
     transition:
       border-color 180ms ease,
       box-shadow 180ms ease,
@@ -165,7 +160,7 @@
 
   @media (max-width: 640px) {
     .promo-slot {
-      padding: 8px 10px;
+      margin-bottom: 10px;
     }
 
     .promo-slot-link {

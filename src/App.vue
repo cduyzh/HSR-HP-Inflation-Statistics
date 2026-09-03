@@ -208,6 +208,8 @@
 <template>
   <div class="app-shell">
     <header class="hero-shell">
+      <PromoSlot />
+
       <section class="hero-panel">
         <div class="hero-copy">
           <div class="brand-mark">
@@ -305,8 +307,6 @@
     <main class="main">
       <RouterView />
     </main>
-
-    <PromoSlot />
 
     <footer class="footer">
       <span class="footer-muted"

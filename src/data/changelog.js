@@ -5,6 +5,17 @@
 
 export const CHANGELOG = [
 	{
+		version: '1.4.1',
+		date: '2026-09-03',
+		title: '推广位上移到顶部',
+		items: [
+			{
+				type: 'improve',
+				text: '“竞速档案站 · CN”推广位从页脚上方移到页面顶部（模式切换栏之下），并加强描边提升可见度。',
+			},
+		],
+	},
+	{
 		version: '1.4.0',
 		date: '2026-09-02',
 		title: '更新记录上线',

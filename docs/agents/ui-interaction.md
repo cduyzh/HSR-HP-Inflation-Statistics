@@ -19,6 +19,7 @@
 ### App.vue（外壳）
 
 - 固定模式切换栏 + 普通文档流轮播 banner（`public/banners/*` 自有资源）。banner 是静态数组配置，含模式标签、标题、备注与跳转链接。
+- 相关项目推广位 `PromoSlot` 是 `hero-shell` 的**第一个子节点**（固定切换栏之下、hero 面板之上），随头部普通文档流滚动；**不要**再放回 main 与 footer 之间，页脚只保留“更新记录”入口。
 - 页脚维护“更新记录”入口（`footer-changelog` 按钮）：展示站点版本号，有未读版本时带 `NEW` 徽标；点击打开 `ChangelogModal`。
 - **不要**恢复“顶部大区随滚动自动收起”的旧交互——会遮挡 PC 阅读区。
 
@@ -47,6 +48,7 @@
 | `StatCard.vue`       | 看板数值卡        | 纯展示                                                                                        |
 | `EffectList.vue`     | 环境/赛季效果     | 纯展示 `{ name, desc }[]`                                                                     |
 | `ChangelogModal.vue` | 站点更新记录弹窗  | Props `open`，Emits `close`；Esc/遮罩点击关闭；打开时锁定 body 滚动并补偿滚动条宽度，关闭恢复 |
+| `PromoSlot.vue`      | 相关项目推广位    | 纯展示，文案集中在组件内 `promo` 常量；渲染在头部顶端，外链 `target="_blank" rel="noopener noreferrer"` |
 
 ### SegmentTabs 布局
 
