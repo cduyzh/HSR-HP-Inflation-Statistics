@@ -3,12 +3,15 @@
   import { useRoute, useRouter } from "vue-router";
   import {
     MODES,
-    applyParams,
     fetchJson,
     getHsrVersions,
     stripRichText,
   } from "./services/hsrStatic";
-  import { getCurrentSeasonIds } from "./services/endgame";
+  import {
+    buildEffects,
+    buildSeasonLabel,
+    getCurrentSeasonIds,
+  } from "./services/endgame";
   import {
     APP_VERSION,
     hasUnreadChangelog,
@@ -108,56 +111,12 @@
     () => heroSlides.value[activeSlideIndex.value] || heroSlides.value[0],
   );
 
-  function getDetailEffect(modeKey, detail) {
-    if (modeKey === "moc") {
-      const first = Array.isArray(detail) ? detail[0] : null;
-      return {
-        name: first?.group_name || first?.name || "",
-        desc: applyParams(first?.desc || "", first?.param || []),
-      };
-    }
-
-    if (modeKey === "fiction") {
-      const first = Array.isArray(detail?.option)
-        ? detail.option.find((it) => it?.desc || it?.name)
-        : null;
-      return {
-        name: first?.name || "",
-        desc: applyParams(first?.desc || "", first?.param || []),
-      };
-    }
-
-    if (modeKey === "doom") {
-      return {
-        name: detail?.buff?.name || "",
-        desc: applyParams(detail?.buff?.desc || "", detail?.buff?.param || []),
-      };
-    }
-
-    return { name: "", desc: "" };
-  }
-
-  function getSeasonName(modeKey, seasonId, detail) {
-    if (modeKey === "moc") {
-      const first = Array.isArray(detail) ? detail[0] : null;
-      return (
-        stripRichText(first?.group_name || first?.name || "") ||
-        `${MODES[modeKey]?.label || modeKey} #${seasonId}`
-      );
-    }
-
-    return (
-      stripRichText(
-        detail?.name || detail?.group_name || detail?.zh || detail?.en || "",
-      ) || `${MODES[modeKey]?.label || modeKey} #${seasonId}`
-    );
-  }
-
-  function toBannerSummary(effect) {
+  function toBannerSummary(effect, title) {
     const name = stripRichText(effect?.name || "");
     const desc = stripRichText(effect?.desc || "").replace(/\s+/g, " ");
     const text = desc.length > 62 ? `${desc.slice(0, 62)}...` : desc;
-    if (name && text) return `${name}：${text}`;
+    // 标题已回退成效果名时，摘要不再重复一遍「名称：」
+    if (name && text && name !== title) return `${name}：${text}`;
     return text || "当前赛季详情已缓存，点击查看节点、波次与怪物构成。";
   }
 
@@ -175,12 +134,14 @@
           MODES[item.key].detailPath(ver, seasonId, locale),
         );
         const modeLabel = MODES[item.key]?.label || item.key;
+        const effects = buildEffects(item.key, detail);
+        const title = buildSeasonLabel(item.key, seasonId, detail, effects);
         return {
           id: `${item.key}-${seasonId}`,
           modeKey: item.key,
           modeLabel,
-          title: getSeasonName(item.key, seasonId, detail),
-          note: toBannerSummary(getDetailEffect(item.key, detail)),
+          title,
+          note: toBannerSummary(effects[0], title),
           image: item.image,
           position: item.position,
           href: `/season/${item.key}/${seasonId}`,
@@ -345,6 +306,9 @@
     display: grid;
     grid-template-rows: auto 1fr auto;
     padding-top: var(--mode-bar-offset);
+    /* 装饰性出血（hero 光晕）不该变成整页横向滚动；
+       clip 不建滚动容器，也不成为 fixed 的包含块，纵向溢出的下拉层不受影响。 */
+    overflow-x: clip;
   }
 
   .hero-shell {

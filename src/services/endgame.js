@@ -1,5 +1,5 @@
-import {MODES, applyParams, fetchJson, formatEffects, formatStoryEffects, getActivePublishedReleaseId, normalizeSeasonList, stripRichText} from './hsrStatic.js'
-import {calcEventSide, getHpContext, mergeMonsterCounts} from './hpCalc.js'
+import {MODES, applyParams, fetchJson, formatEffects, formatStoryEffects, getActivePublishedReleaseId, normalizeSeasonList, readTrendCache, stripRichText, writeTrendCache} from './hsrStatic.js'
+import {calcEventSide, getHpContext} from './hpCalc.js'
 
 const PRECOMPUTED_SCHEMA_VERSION = 1
 const FALLBACK_CONCURRENCY = 6
@@ -249,7 +249,7 @@ function pickStages(modeKey, detail) {
   return []
 }
 
-function buildEffects(modeKey, detail) {
+export function buildEffects(modeKey, detail) {
   if (modeKey === 'moc') {
     const first = Array.isArray(detail) ? detail[0] : null
     if (!first) return []
@@ -273,14 +273,6 @@ function buildEffects(modeKey, detail) {
 
 function buildStageEffects(raw = {}) {
   return formatEffects(raw?.tag_list)
-}
-
-function flatMonstersFromWaves(waves = []) {
-  const out = []
-  for (const w of waves) {
-    for (const m of w.monsters || []) out.push(m)
-  }
-  return out
 }
 
 function addStageGroup(groups, key, name, events, infiniteList) {
@@ -319,7 +311,7 @@ function buildStageGroups(modeKey, raw = {}) {
   return groups
 }
 
-function buildSeasonLabel(modeKey, seasonId, detail, effects) {
+export function buildSeasonLabel(modeKey, seasonId, detail, effects) {
   if (modeKey === 'peak') return stripRichText(detail?.name || effects?.[0]?.name || `异相仲裁 #${seasonId}`)
 
   const seasonName = stripRichText(detail?.name || detail?.group_name || detail?.zh || detail?.en || '')
@@ -348,11 +340,6 @@ function computeStage(modeKey, ctx, stage) {
     invasion: pickInvasion(group.events),
   }))
 
-  const side1 = groups.find(it => it.key === 'side1') || {sideHp: 0, waves: []}
-  const side2 = groups.find(it => it.key === 'side2') || {sideHp: 0, waves: []}
-  const extras = groups.filter(it => it.key !== 'side1' && it.key !== 'side2' && it.key !== 'side3')
-  const allMonsters = groups.flatMap(it => flatMonstersFromWaves(it.waves))
-
   return {
     key: stage.key,
     stageNo: stage.stageNo,
@@ -360,13 +347,7 @@ function computeStage(modeKey, ctx, stage) {
     isBossStage: Boolean(stage.isBossStage),
     groups,
     effects: buildStageEffects(raw),
-    side1,
-    side2,
-    extraHp: extras.reduce((sum, it) => sum + (it.sideHp || 0), 0),
     totalHp: groups.reduce((sum, it) => sum + (it.sideHp || 0), 0),
-    monsters1: mergeMonsterCounts(flatMonstersFromWaves(side1.waves)),
-    monsters2: mergeMonsterCounts(flatMonstersFromWaves(side2.waves)),
-    monsters: mergeMonsterCounts(allMonsters),
   }
 }
 
@@ -415,20 +396,38 @@ export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force
   if (!mode) throw new Error(`未知模式：${modeKey}`)
   if (!list.length) return []
 
-  const precomputed = await readPrecomputedTrend(modeKey, ver, {signal, force})
-  if (precomputed) {
-    const itemMap = new Map(precomputed.map(item => [toNum(item?.id), item]))
-    const items = list.map(season => itemMap.get(toNum(season?.id ?? season))).filter(Boolean)
-    if (items.length === list.length) {
-      onProgress?.({done: list.length, total: list.length})
-      return items
+  const ids = list.map(season => toNum(season?.id ?? season))
+  // 取数顺序：本地派生结果 -> 云端预计算 -> 实时复算；每一层只补齐还缺的期数。
+  const resolved = new Map()
+  if (!force) {
+    for (const item of readTrendCache(ver, modeKey) || []) {
+      const id = toNum(item?.id)
+      if (id && Number.isFinite(Number(item?.total))) resolved.set(id, item)
     }
   }
+  if (resolved.size && ids.every(id => resolved.has(id))) {
+    onProgress?.({done: ids.length, total: ids.length})
+    return ids.map(id => resolved.get(id))
+  }
 
+  const precomputed = await readPrecomputedTrend(modeKey, ver, {signal, force})
+  if (precomputed) {
+    for (const item of precomputed) {
+      const id = toNum(item?.id)
+      if (id && !resolved.has(id)) resolved.set(id, item)
+    }
+  }
+  if (resolved.size && ids.every(id => resolved.has(id))) {
+    writeTrendCache(ver, modeKey, [...resolved.values()])
+    onProgress?.({done: ids.length, total: ids.length})
+    return ids.map(id => resolved.get(id))
+  }
+
+  const pending = list.filter(season => !resolved.has(toNum(season?.id ?? season)))
   const ctx = await getHpContext(ver, {signal, force})
   let done = 0
 
-  return await mapWithConcurrency(list, FALLBACK_CONCURRENCY, async season => {
+  const computed = await mapWithConcurrency(pending, FALLBACK_CONCURRENCY, async season => {
     const id = toNum(season?.id ?? season)
     const detail = await fetchJson(mode.detailPath(ver, id, 'zh'), {signal, force})
     const stages = pickStages(modeKey, detail)
@@ -442,7 +441,11 @@ export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force
     }
 
     done += 1
-    onProgress?.({done, total: list.length, id})
+    onProgress?.({done, total: pending.length, id})
     return item
   })
+
+  for (const item of computed) resolved.set(item.id, item)
+  writeTrendCache(ver, modeKey, [...resolved.values()])
+  return ids.map(id => resolved.get(id))
 }

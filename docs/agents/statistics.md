@@ -9,7 +9,7 @@
 
 ## HP 公式
 
-`calcMonsterHp()`（`src/services/hpCalc.js:98`）：
+`calcMonsterHp()`（`src/services/hpCalc.js:94`）：
 
 ```text
 单体 HP = round(HPBase × HPModifyRatio × HardLevelRatio × EliteRatio)
@@ -27,13 +27,13 @@
 phaseMultiplier = Σ PhaseList[].phase_max_hp_ratio（为 0 时按 1）
 ```
 
-`calcMonsterHpMultiplier()`（`hpCalc.js:119`）。忘却之庭 `1033` 的两个 boss 即 `HP × 2`；可用 `pnpm audit:moc-phase-hp` 审计。
+`calcMonsterHpMultiplier()`（`hpCalc.js:115`）。忘却之庭 `1033` 的两个 boss 即 `HP × 2`；可用 `pnpm audit:moc-phase-hp` 审计。
 
-速度展示：`SpeedBase × SpeedModifyRatio + SpeedModifyValue`（`calcMonsterSpeed`，`hpCalc.js:110`）。
+速度展示：`SpeedBase × SpeedModifyRatio + SpeedModifyValue`（`calcMonsterSpeed`，`hpCalc.js:106`）。
 
 ## 赛季列表与去重
 
-- `normalizeSeasonList()`（`hsrStatic.js:144`）：按 `idMin` 过滤、按 id 升序，名称走 `stripRichText`。
+- `normalizeSeasonList()`（`hsrStatic.js:185`）：按 `idMin` 过滤、按 id 升序，名称走 `stripRichText`。
 - **赛季去重**（`dedupeCloseSeasonsByName`，`endgame.js:77`）：名称（清洗后）相同且 id 差 ≤ 2 时，保留更小 id。趋势与当前赛季推导共用同一去重。
 - 当前赛季 = 去重后列表的最大 id（`getCurrentSeasonIds()`）。
 
@@ -58,25 +58,25 @@ phaseMultiplier = Σ PhaseList[].phase_max_hp_ratio（为 0 时按 1）
 
 ## 节点分组（buildStageGroups）
 
-`endgame.js:293`：优先按 `event_id_list1/2/3 + infinite_list1/2/3` 组成 `side1 / side2 / side3`（doom 的 side3 展示名是“星启模式”）。若只有扁平 `event_id_list`：
+`endgame.js:288`：优先按 `event_id_list1/2/3 + infinite_list1/2/3` 组成 `side1 / side2 / side3`（doom 的 side3 展示名是“星启模式”）。若只有扁平 `event_id_list`：
 
 - 含 ≥ 2 个不同 `stage_id` → 按 stage_id 拆成多个节点（或“追加轮次”）；
 - 否则整体作为节点 1（或“追加轮次”）。
 
 ## 波次与怪物聚合（calcEventSide）
 
-`hpCalc.js:178`，对每个节点的 events：
+`hpCalc.js:173`，对每个节点的 events：
 
 - 波次数 = `max(monster_list 长度, 无限波索引)`；无限波键为 `stageId × 10 + 波次号`。
-- **同波次相同怪物聚合计数**（显示 x2 / x3），卡片按 `unitHp` 降序（`hpCalc.js:225`、`mergeMonsterCounts`）。
+- **同波次相同怪物聚合计数**（显示 x2 / x3），卡片按 `unitHp` 降序（`calcEventSide` 内的 `monsterMap`，`hpCalc.js:220`）。跨波次/跨节点的合并此前只服务于详情页未消费的字段，已随之下线。
 - 节点总 HP = 所有波次 `unitHp × phaseMultiplier` 之和。
 
 ### 虚构叙事无限波（重点）
 
 `computeStage` 对 `fiction` 传 `preferInfiniteMonsterList: true`（`endgame.js:330`）：
 
-- 敌人列表以 `infinite_list*.monster_group_id_list` 为主，再补入普通 `monster_list` 中无限波没有的怪物（`listWaveMonsters`，`hpCalc.js:133`）。不要只取其一——会漏掉 `8003060` 虚构集合体这类补充怪，或覆盖原始波次怪物。
-- 精英组优先级：`event.elite_group` → `infiniteWave.elite_group`；且启用 `+296` 映射（`resolveInfiniteEliteGroup`，`hpCalc.js:126`）：若 `eliteGroup + 296` 在表中存在则用映射后的倍率。
+- 敌人列表以 `infinite_list*.monster_group_id_list` 为主，再补入普通 `monster_list` 中无限波没有的怪物（`listWaveMonsters`，`hpCalc.js:129`）。不要只取其一——会漏掉 `8003060` 虚构集合体这类补充怪，或覆盖原始波次怪物。
+- 精英组优先级：`event.elite_group` → `infiniteWave.elite_group`；且启用 `+296` 映射（`resolveInfiniteEliteGroup`，`hpCalc.js:122`）：若 `eliteGroup + 296` 在表中存在则用映射后的倍率。
 
 ### 污染等级（invasion）
 
@@ -84,16 +84,22 @@ phaseMultiplier = Σ PhaseList[].phase_max_hp_ratio（为 0 时按 1）
 
 ## 趋势数值
 
-`seasonTotalForTrend()`（`endgame.js:395`）：
+`seasonTotalForTrend()`（`endgame.js:388`）：
 
 - `peak`：整期所有关卡 `totalHp` 求和。
 - 其他模式：只取最后一个（最终）阶段的 `totalHp`。
 
-`getTrend()`（`endgame.js:400`）：优先预计算 `trends.json`（需覆盖全部赛季才采用）；回退时 6 路受控并发逐期复算，**返回顺序必须与输入赛季列表一致**。
+`getTrend()`（`endgame.js:393`）三级取数，**每一层只补齐还缺的期数**：
+
+1. 本地派生缓存（`readTrendCache`）：命中请求的全部期数即直接返回，不再下载基础表与任何期数详情；
+2. 云端预计算 `trends.json`：覆盖全部缺口时采用并回写本地缓存；
+3. 实时复算：6 路受控并发逐期复算，完成后把合并结果回写本地缓存。
+
+**返回顺序必须与输入赛季列表一致**（三层都按 `ids` 重排）。`force: true` 跳过第 1 层并强制复算回写。进度回调的 `total` 是本轮真正需要复算的期数。
 
 ## 效果来源（详情页展示）
 
-`buildEffects()`（`endgame.js:249`）：
+`buildEffects()`（`endgame.js:252`）：
 
 | 模式 | 整期效果 | 节点效果 |
 | --- | --- | --- |

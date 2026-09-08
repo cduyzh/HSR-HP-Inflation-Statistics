@@ -15,10 +15,6 @@ export function fmtShort(n) {
   return fmtInt(v)
 }
 
-export function clamp(n, min, max) {
-  return Math.min(max, Math.max(min, n))
-}
-
 export function fmtPct(v) {
   const n = Number(v)
   if (!Number.isFinite(n)) return '0%'
@@ -26,6 +22,12 @@ export function fmtPct(v) {
   return `${p.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')}%`
 }
 
-export function safeText(v) {
-  return String(v ?? '').trim()
+// ECharts tooltip 的 formatter 返回值按 innerHTML 渲染，插值的上游文本必须先转义。
+export function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
 }

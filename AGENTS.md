@@ -19,7 +19,7 @@
 
 - 前端：Vue 3（`<script setup>`）+ Vue Router 4
 - 构建：Vite
-- 图表：ECharts
+- 图表：ECharts（`echarts/core` 按需注册 + 异步分片加载，不做全量引入）
 - 包管理：pnpm
 - Node：>= 24
 
@@ -28,6 +28,7 @@
 - 统一数据源：`https://static.nanoka.cc`
 - 页面所有 JSON 与怪物图片均由前端**直连数据源绝对地址**读取（数据源已开放 `Access-Control-Allow-Origin: *`）；本站不代理、不落盘、不随构建发布任何数据文件，以降低 Netlify 带宽与存储占用。轮播 banner 与 favicon 是本项目自有小体积资源，仍随构建发布。
 - 版本策略：读取 `manifest.hsr.latest`；数据源不发布 `releaseId`，localStorage 缓存隔离回退为版本号。
+- 趋势结果有独立的**派生缓存**层（键含版本 + releaseId + 模式）：命中即免下载 5 张基础表与全部期数详情。原料级 localStorage 缓存受单源约 5MB 配额限制（仅基础表就约 2.1MB），不可依赖；持久化优先存派生结果。
 - 数据源不发布 `cache-plan.json`：各模式当前赛季由期数索引去重后的最大 id 推导（`getCurrentSeasonIds()`）。
 - 本项目目的：统计最新数据，不做“版本差异比较”
 
@@ -70,7 +71,7 @@
 文件：`src/services/hsrStatic.js`
 
 - `DATA_SITE = 'https://static.nanoka.cc'`：所有 JSON 由 `fetchJson()` 直连该站点读取，并写入按版本号隔离的内存 + localStorage 缓存；请求失败时回退到上一次成功的本地缓存。
-- 趋势和单期详情优先读取 `/hsr/<ver>/computed/endgame/*` 预计算文件（仅接受 `schemaVersion: 1` 且 `ver` 匹配）；当前数据源未发布该目录，全程回退到实时复算。
+- 趋势取数三级顺序：本地派生缓存 → `/hsr/<ver>/computed/endgame/*` 预计算（仅接受 `schemaVersion: 1` 且 `ver` 匹配）→ 实时复算，每层只补齐还缺的期数；当前数据源未发布预计算目录，命中本地缓存即零数据源请求。
 - 仓库不再保留本地 JSON 离线副本；`pnpm sync:data -- --download` 只用于排障。
 
 ### HP 计算与怪物信息
@@ -91,7 +92,7 @@
 - 忘却/虚构/末日：只取最终关卡（最终阶段）的总 HP
 - 星启节点合并：当数据结构提供新增节点时，合并为节点3参与统计
 - 赛季去重：当“名称相同且 id 差值 <= 2”时，保留更小 id，避免重复统计
-- 预计算缺失时，趋势详情使用 6 路受控并发拉取与复算；返回顺序必须与赛季列表一致。
+- 预计算缺失时，趋势只对**尚未缓存的期数**用 6 路受控并发拉取与复算；返回顺序必须与赛季列表一致。
 
 ### UI 结构
 
@@ -106,6 +107,8 @@
 - 路由切换默认保持浏览器当前滚动位置：模式切换、进入详情、详情返回都不应把页面主动滚到顶部。
 - `src/router/index.js` 的滚动策略当前按“返回 `false`，不接管滚动”维护；若后续调整，需要先验证趋势页与详情页的滚动连续性。
 - 详情页加载态需要保留足够页面高度，避免页面瞬时变短导致浏览器把当前滚动值夹断。
+- **整页不得横向滚动**（各断点 `documentElement.scrollWidth === clientWidth`）：装饰性出血由 `App.vue` 的 `.app-shell { overflow-x: clip }` 收口；内部含不可收缩内容的栅格/弹性项必须显式 `min-width: 0`，组件内滚动交给自己的 `overflow-x: auto`。
+- 拼进 HTML 的上游文本必须先过 `escapeHtml`（唯一 HTML sink 是趋势图 tooltip 的 `formatter`），全站不使用 `v-html`。
 
 ### 组件布局约定
 

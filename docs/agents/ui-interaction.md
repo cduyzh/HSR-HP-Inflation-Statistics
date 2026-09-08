@@ -58,7 +58,9 @@
 
 ## 格式化
 
-`src/utils/format.js`：`fmtInt`（千分位）、`fmtShort`（K/M/B，两位小数裁零）、`fmtPct`（×100 百分比）、`clamp`、`safeText`。展示数值统一走这里，不要手写 toLocaleString。
+`src/utils/format.js`：`fmtInt`（千分位）、`fmtShort`（K/M/B，两位小数裁零）、`fmtPct`（×100 百分比）、`escapeHtml`。展示数值统一走这里，不要手写 toLocaleString。
+
+任何拼进 HTML 的上游文本都必须先过 `escapeHtml`：目前唯一的 HTML sink 是 `HpTrendsPage.vue` 的 ECharts tooltip `formatter`（返回值按 innerHTML 渲染，`marker` 是 echarts 自己生成的片段、不要转义）。其余渲染路径都是 Vue 插值，自动转义；全站禁止使用 `v-html`。
 
 ## 站点版本记录
 
@@ -77,3 +79,5 @@
 - [ ] 怪物图片只来自数据源 `monstermiddleicon`，缺图显示占位。
 - [ ] 数据请求可被 `AbortController` 中止，切换时不产生竞态结果覆盖。
 - [ ] 样式改动同时看 PC（宽屏换行）与移动端（横向滚动）两种形态。
+- [ ] **整页不得横向滚动**：各断点下 `documentElement.scrollWidth === clientWidth`。装饰性出血（hero 光晕）由 `.app-shell { overflow-x: clip }` 收在视口内（`clip` 不建滚动容器、也不成为 fixed 的包含块）；内部含不可收缩内容的栅格/弹性项必须显式 `min-width: 0`（`min-width: auto` 会把 min-content 逐级顶穿到整页），组件内滚动交给自己的 `overflow-x: auto`。
+- [ ] 拼进 HTML 的上游文本一律先过 `escapeHtml`（当前唯一 HTML sink 是 tooltip formatter），全站不使用 `v-html`。

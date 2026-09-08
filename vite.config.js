@@ -8,7 +8,8 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
-    chunkSizeWarningLimit: 2000,
+    // echarts 已按需注册且走懒加载分片；阈值留出余量，仍能拦住体积回涨。
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks(id) {

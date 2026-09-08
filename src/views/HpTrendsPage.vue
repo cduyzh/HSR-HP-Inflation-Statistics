@@ -1,13 +1,17 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import EChartView from '../components/EChartView.vue'
 import SeasonRail from '../components/SeasonRail.vue'
 import SegmentTabs from '../components/SegmentTabs.vue'
 import StatCard from '../components/StatCard.vue'
 import { getHsrVersions } from '../services/hsrStatic'
 import { getSeasons, getTrend } from '../services/endgame'
-import { fmtInt, fmtPct, fmtShort } from '../utils/format'
+import { escapeHtml, fmtInt, fmtPct, fmtShort } from '../utils/format'
+
+// 图表库按需异步加载，避免 echarts chunk 阻塞看板与统计卡首屏。
+const EChartView = defineAsyncComponent(() => import('../components/EChartView.vue'))
+
+const CHART_HEIGHT = 340
 
 const props = defineProps({
   mode: { type: String, default: 'moc' },
@@ -122,9 +126,10 @@ onBeforeUnmount(stopLoading)
 function buildTooltip(params) {
   const point = Array.isArray(params) ? params[0] : params
   const item = filteredTrend.value[point?.dataIndex] || {}
-  const lines = [item.label || point?.axisValueLabel || '']
+  // tooltip 按 innerHTML 渲染：上游派生文本逐段转义；marker 是 echarts 生成的 HTML，保持原样。
+  const lines = [escapeHtml(item.label || point?.axisValueLabel || '')]
   if (item.id) lines.push(`#${item.id}`)
-  lines.push(`${point?.marker || ''}${point?.seriesName || '总HP'}：${fmtInt(point?.data)}`)
+  lines.push(`${point?.marker || ''}${escapeHtml(point?.seriesName || '总HP')}：${fmtInt(point?.data)}`)
   return lines.join('<br/>')
 }
 
@@ -271,7 +276,9 @@ function selectAllSeasons() {
                 {{ progress.total ? `正在准备血量数据：${progress.done}/${progress.total}` : '正在读取预计算血量…' }}
               </div>
             </div>
-            <EChartView v-if="filteredTrend.length" :option="chartOption" :height="340" />
+            <div v-if="filteredTrend.length" class="chart-slot" :style="{ minHeight: `${CHART_HEIGHT}px` }">
+              <EChartView :option="chartOption" :height="CHART_HEIGHT" />
+            </div>
             <div v-else-if="!loading" class="state">
               <div class="state-title">暂无数据</div>
               <div class="state-sub">{{ emptyStateSub }}</div>

@@ -1,6 +1,12 @@
 <script setup>
-import * as echarts from 'echarts'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import * as echarts from 'echarts/core'
+import { LineChart } from 'echarts/charts'
+import { GridComponent, TooltipComponent } from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+
+// 按需注册：折线图 + 直角坐标系 + axis tooltip（TooltipComponent 自带 axisPointer）。
+echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer])
 
 const props = defineProps({
   option: { type: Object, required: true },

@@ -117,9 +117,19 @@
   const seasonTitle = computed(
     () => data.value?.label || `${modeLabel.value} #${props.id}`,
   );
-  const seasonOptions = computed(() =>
-    seasons.value.slice().sort((a, b) => b.id - a.id),
-  );
+  const seasonOptions = computed(() => {
+    const label = data.value?.label;
+    const currentId = data.value?.id;
+    return seasons.value
+      .map((it) => ({
+        ...it,
+        name:
+          it.id === currentId && label
+            ? label
+            : it.zh || it.en || String(it.id),
+      }))
+      .sort((a, b) => b.id - a.id);
+  });
   const currentSeasonOption = computed(() =>
     seasonOptions.value.find((it) => it.id === props.id),
   );
@@ -140,21 +150,7 @@
     () => props.mode === "peak" && Boolean(activeStage.value?.isBossStage),
   );
 
-  const stageStats = computed(() => {
-    const s = activeStage.value;
-    if (!s) return { total: 0, nodes: 0, waves: 0, count: 0, extraNodes: 0 };
-    const groups = s.groups || [];
-    return {
-      total: s.totalHp || 0,
-      nodes: groups.length,
-      waves: groups.reduce(
-        (sum, group) => sum + ((group.waves || []).length || 0),
-        0,
-      ),
-      count: (s.monsters || []).reduce((a, b) => a + (b.count || 0), 0),
-      extraNodes: groups.filter((group) => group.key === "extra").length,
-    };
-  });
+  const stageTotal = computed(() => activeStage.value?.totalHp || 0);
 
   const detailClass = computed(() => ({
     grid: props.mode === "peak",
@@ -255,12 +251,12 @@
 
         <div
           class="hero-total"
-          :title="`${totalLabel} · ${fmtInt(stageStats.total)}`">
+          :title="`${totalLabel} · ${fmtInt(stageTotal)}`">
           <div class="hero-total-k">{{ totalLabel }}</div>
-          <div class="hero-total-v">{{ fmtShort(stageStats.total) }}</div>
+          <div class="hero-total-v">{{ fmtShort(stageTotal) }}</div>
           <div class="hero-total-sub">
             {{ mode === "peak" ? "仲裁项总HP" : "关卡总HP" }} ·
-            {{ fmtInt(stageStats.total) }}
+            {{ fmtInt(stageTotal) }}
           </div>
         </div>
 
@@ -280,9 +276,7 @@
               @keydown.escape.stop="closeSeasonSwitch">
               <span class="trigger-id">#{{ id }}</span>
               <span class="trigger-name">{{
-                currentSeasonOption?.zh ||
-                currentSeasonOption?.en ||
-                seasonTitle
+                currentSeasonOption?.name || seasonTitle
               }}</span>
               <span
                 class="select-caret"
@@ -309,9 +303,7 @@
                   aria-hidden="true"></span>
                 <span class="option-copy">
                   <span class="option-id">#{{ season.id }}</span>
-                  <span class="option-name">{{
-                    season.zh || season.en || season.id
-                  }}</span>
+                  <span class="option-name">{{ season.name }}</span>
                 </span>
               </button>
             </div>
@@ -843,6 +835,18 @@
     display: grid;
     gap: 12px;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  /* 栅格项默认 min-width: auto，会把内部不可收缩的内容（peak 关卡标签条 min-content ≈ 792px）
+     逐级顶穿到整页，窄屏表现为整页横向滚动。放开这一链路的最小宽度，
+     让 .seg 依靠自己的 overflow-x: auto 横向滚动（移动端滚动、PC 换行的约定不变）。 */
+  .grid > *,
+  .detail-stack > *,
+  .detail-top > *,
+  .top-panels > *,
+  .effects-row > *,
+  .main > * {
+    min-width: 0;
   }
 
   .panel {

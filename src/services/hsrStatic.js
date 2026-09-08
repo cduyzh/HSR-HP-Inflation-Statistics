@@ -1,4 +1,6 @@
 const JSON_CACHE_PREFIX = 'hsr-endgame:json:'
+const TREND_CACHE_PREFIX = 'hsr-endgame:trend:'
+const TREND_CACHE_SCHEMA = 1
 const jsonMemoryCache = new Map()
 const jsonRequestCache = new Map()
 let activeReleaseId = 'unversioned'
@@ -79,6 +81,45 @@ function writePersistentCache(path, data) {
   }
 }
 
+function trendCacheKey(ver, modeKey) {
+  return `${TREND_CACHE_PREFIX}${ver}:${activePublishedReleaseId || 'no-release-id'}:${modeKey}`
+}
+
+// 趋势复算要吃 5 张 HP 基础表 + 全部期数详情，而结果只有每期几个字段且同一版本内确定性可复现，
+// 因此只把派生结果落盘，不缓存原料。
+export function readTrendCache(ver, modeKey) {
+  if (!canUseStorage()) return null
+  try {
+    const raw = window.localStorage.getItem(trendCacheKey(ver, modeKey))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed?.schema !== TREND_CACHE_SCHEMA || !Array.isArray(parsed.items)) return null
+    return parsed.items
+  } catch {
+    return null
+  }
+}
+
+export function writeTrendCache(ver, modeKey, items) {
+  if (!canUseStorage()) return
+  try {
+    window.localStorage.setItem(trendCacheKey(ver, modeKey), JSON.stringify({ schema: TREND_CACHE_SCHEMA, items }))
+    pruneTrendCache(ver)
+  } catch {
+    // 忽略缓存写入失败，避免影响正常展示
+  }
+}
+
+function pruneTrendCache(ver) {
+  const store = window.localStorage
+  if (typeof store?.length !== 'number' || typeof store.key !== 'function' || typeof store.removeItem !== 'function') return
+  const keep = `:${ver}:`
+  for (let i = store.length - 1; i >= 0; i -= 1) {
+    const key = store.key(i)
+    if (key?.startsWith(TREND_CACHE_PREFIX) && !key.includes(keep)) store.removeItem(key)
+  }
+}
+
 export async function fetchJson(path, { signal, force = false } = {}) {
   const cacheKey = getCacheKey(path)
   if (!force && jsonMemoryCache.has(cacheKey)) return jsonMemoryCache.get(cacheKey)
@@ -145,7 +186,7 @@ export function normalizeSeasonList(listJson, { idMin }) {
   const items = Object.entries(listJson || {})
     .map(([key, it]) => ({
       id: Number(it?.id ?? it?.Id ?? it?.ID ?? key),
-      zh: stripRichText(it.zh ?? it.name ?? String(it.id ?? '')),
+      zh: stripRichText(it.zh ?? it.name ?? it.en ?? String(it.id ?? '')),
       en: stripRichText(it.en ?? ''),
       begin: it.begin ?? it.begin_time ?? '',
       end: it.end ?? it.end_time ?? '',
@@ -193,14 +234,6 @@ export function formatEffects(entries = []) {
       desc: applyParams(it.desc ?? '', it.param ?? it.param_fix ?? []),
     }))
     .filter(it => it.name || it.desc)
-}
-
-export function formatBossEffects(rootJson) {
-  const main = rootJson?.buff ? [{ name: rootJson.buff?.name, desc: applyParams(rootJson.buff?.desc, rootJson.buff?.param) }] : []
-  const l1 = formatEffects(rootJson?.buff_list1)
-  const l2 = formatEffects(rootJson?.buff_list2)
-  const l3 = formatEffects(rootJson?.buff_list3)
-  return [...main, ...l1, ...l2, ...l3].filter(it => it.name || it.desc)
 }
 
 export function formatStoryEffects(rootJson) {

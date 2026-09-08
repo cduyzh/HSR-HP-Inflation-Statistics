@@ -29,10 +29,6 @@ function getValue(obj, key) {
   return obj[key] ?? obj[String(key)]
 }
 
-function buildUnknownIcon() {
-  return ''
-}
-
 function normalizeMonsterKey(ctx, monsterId) {
   const id = toNum(monsterId)
   if (!id) return 0
@@ -52,19 +48,19 @@ function getMonsterMetaRecord(ctx, monsterId) {
   return getValue(ctx.monster, key)
 }
 
-function buildMonsterMiddleIcon(monsterId, fallback = '') {
+// 空串表示数据源无对应切图，由调用方渲染占位，不发无效图片请求。
+function buildMonsterMiddleIcon(monsterId) {
   const raw = toNum(monsterId)
   const baseId = raw >= 1e8 ? Math.floor(raw / 100) : raw
   const id = baseId % 10 === 0 ? baseId : Math.floor(baseId / 10) * 10
-  if (id) return `${MONSTER_ICON_BASE}/Monster_${id}.webp`
-  return fallback || buildUnknownIcon()
+  return id ? `${MONSTER_ICON_BASE}/Monster_${id}.webp` : ''
 }
 
 function buildMonsterMiddleIconFromMeta(meta, monsterId) {
   const rawIcon = String(meta?.icon || '')
   const match = rawIcon.match(/Monster_([0-9A-Za-z_]+)\.(?:png|webp)$/i)
   if (match?.[1]) return `${MONSTER_ICON_BASE}/Monster_${match[1]}.webp`
-  return buildMonsterMiddleIcon(monsterId, buildUnknownIcon())
+  return buildMonsterMiddleIcon(monsterId)
 }
 
 export async function getHpContext(ver, { signal, force = false } = {}) {
@@ -163,14 +159,13 @@ export function getMonsterInfo(ctx, monsterId) {
   const mv = getMonsterValueRecord(ctx, monsterId)
   const child = Array.isArray(mv?.child) ? mv.child.find(c => toNum(c.Id) === toNum(monsterId)) : null
   const spd = calcMonsterSpeed(ctx, monsterId)
-  if (!m) return { id: monsterId, name: String(monsterId), icon: buildUnknownIcon(), weak: [], rank: '', spd }
+  if (!m) return { id: monsterId, name: String(monsterId), icon: '', weak: [], resist: [], spd }
   return {
     id: monsterId,
     name: m.zh || m.en || String(monsterId),
     icon: buildMonsterMiddleIconFromMeta(m, monsterId),
     weak: Array.isArray(child?.StanceWeakList) && child.StanceWeakList.length ? child.StanceWeakList : Array.isArray(m.weak) ? m.weak : [],
     resist: Array.isArray(m.resist) ? m.resist : [],
-    rank: m.rank || '',
     spd,
   }
 }
@@ -228,19 +223,4 @@ export function calcEventSide(ctx, events = [], { infiniteList, preferInfiniteMo
   }
 
   return { sideHp, waves }
-}
-
-export function mergeMonsterCounts(monsters = []) {
-  const m = new Map()
-  for (const it of monsters) {
-    const key = it.id
-    const count = toNum(it?.count) || 1
-    const prev = m.get(key)
-    if (!prev) {
-      m.set(key, { ...it, count })
-    } else {
-      prev.count += count
-    }
-  }
-  return [...m.values()].sort((a, b) => b.unitHp - a.unitHp)
 }

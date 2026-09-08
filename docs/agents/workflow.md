@@ -26,7 +26,8 @@ pnpm sync:data -- --download .hsr-cache/shared-data   # 下载离线副本，仅
 
 - 运行器是 Node 内置 `node:test`，**没有 jsdom / vitest**。
 - 测试里手工伪造浏览器环境：`globalThis.window = { localStorage }` + `globalThis.fetch`（见 `tests/endgame-precomputed.test.js`）。服务层代码要求 `window` 存在，新增测试沿用同一 `installBrowser()` 模式。
-- 现有覆盖：预计算趋势命中、单期预计算命中、回退复算时的受控并发（≤6）与输入顺序保持。
+- 现有覆盖：预计算趋势命中、单期预计算命中、回退复算时的受控并发（≤6）与输入顺序保持；本地派生趋势缓存的完整命中（零请求）、部分命中只复算缺口、版本变化后失效并清理旧键（`tests/trend-cache.test.js`）。
+- 测派生趋势缓存要用**有状态**的 `localStorage` 伪实现（需 `length` / `key()` / `removeItem()`，否则 `pruneTrendCache` 会被跳过）；其余测试沿用无状态 `installBrowser()`。
 - 新增口径测试时：构造最小化的 `monster/monstervalue/HardLevelGroup/EliteGroup/InfiniteEliteGroup` + 单期详情，断言 `getTrend` / `getSeasonComputed` 的 total 与结构。
 
 ## 数据协议校验脚本
@@ -44,7 +45,8 @@ pnpm sync:data -- --download .hsr-cache/shared-data   # 下载离线副本，仅
 
 - 平台：Netlify；`netlify.toml` 只有构建命令（`pnpm build`）、发布目录（`dist`）、Node 24 与 SPA 回退重写（`/* → /index.html`）。**没有也不需要**数据代理重定向。
 - `scripts/deploy-netlify.sh` 处理登录态（`.netlify-config` 内隔离的 XDG 配置）与生产发布；登录用 `pnpm netlify:login`。
-- 构建注意：`vite.config.js` 把 echarts 单独拆 chunk，`chunkSizeWarningLimit: 2000`。
+- 构建注意：echarts 在 `EChartView.vue` 里**按需注册**（`echarts/core` + `LineChart` + `GridComponent` + `TooltipComponent` + `CanvasRenderer`），并由 `HpTrendsPage.vue` 用 `defineAsyncComponent` 异步加载，所以它是懒加载分片、不进首屏。实测：echarts 分片 494KB（gzip 167KB），首屏 `index` 147KB（gzip 55KB）；`chunkSizeWarningLimit` 已收紧到 600。
+- 新增图表类型或 tooltip 之外的组件（legend / dataZoom / markLine 等）时，必须在 `EChartView.vue` 的 `echarts.use([...])` 里同步注册，否则构建不报错、运行时静默不渲染。
 
 ## 排障手册
 
