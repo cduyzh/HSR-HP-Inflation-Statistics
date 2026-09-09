@@ -19,8 +19,10 @@
 ### App.vue（外壳）
 
 - 固定模式切换栏 + 普通文档流轮播 banner（`public/banners/*` 自有资源）。banner 是静态数组配置，含模式标签、标题、备注与跳转链接。
-- 相关项目推广位 `PromoSlot` 是 `hero-shell` 的**第一个子节点**（固定切换栏之下、hero 面板之上），随头部普通文档流滚动；**不要**再放回 main 与 footer 之间，页脚只保留“更新记录”入口。
-- 页脚维护“更新记录”入口（`footer-changelog` 按钮）：展示站点版本号，有未读版本时带 `NEW` 徽标；点击打开 `ChangelogModal`。
+- 相关项目推广位 `PromoSlot` 是 `hero-shell` 的**第一个子节点**（固定切换栏之下、hero 面板之上），随头部普通文档流滚动；**不要**再放回 main 与 footer 之间，页脚只保留“更新记录”“联系我们”两个入口。
+- 页脚两个入口放在 `.footer-actions` 组内，共用 `.footer-btn` 基类（`.footer-btn-ver` / `.footer-btn-new` 只挂在更新记录按钮上）：
+  - `更新记录`：展示站点版本号，有未读版本时带 `NEW` 徽标；点击打开 `ChangelogModal`。
+  - `联系我们`：纯文字 pill；点击打开 `ContactModal`，联系方式是组件内静态常量，无未读态。
 - **不要**恢复“顶部大区随滚动自动收起”的旧交互——会遮挡 PC 阅读区。
 
 ### HpTrendsPage.vue（趋势页）
@@ -48,6 +50,7 @@
 | `StatCard.vue`       | 看板数值卡        | 纯展示                                                                                        |
 | `EffectList.vue`     | 环境/赛季效果     | 纯展示 `{ name, desc }[]`                                                                     |
 | `ChangelogModal.vue` | 站点更新记录弹窗  | Props `open`，Emits `close`；Esc/遮罩点击关闭；打开时锁定 body 滚动并补偿滚动条宽度，关闭恢复 |
+| `ContactModal.vue`   | 联系方式弹窗      | Props `open`，Emits `close`；滚动锁定与关闭交互同上（逻辑各自持有一份，未抽公共 composable）；复制走 `navigator.clipboard`，邮箱另有 `mailto:` 直发 |
 | `PromoSlot.vue`      | 相关项目推广位    | 纯展示，文案集中在组件内 `promo` 常量；渲染在头部顶端，外链 `target="_blank" rel="noopener noreferrer"` |
 
 ### SegmentTabs 布局
@@ -71,6 +74,15 @@
 - 展示形态：页脚按钮 + `ChangelogModal` 弹窗时间线，**不新增路由**，避免影响路由滚动连续性；弹窗为 fixed 覆盖层，打开时锁定 body 滚动并补偿滚动条宽度。
 - 注意区分：hero 区“当前版本”meta 卡展示的是游戏数据版本（`manifest.hsr.latest`），页脚展示的是站点版本，二者互不相干。
 
+## 联系方式
+
+- 渠道**只有两个**：微信 `cduyzh`（直接添加好友）与邮箱 `cduyzh@gmail.com`。不要新增 QQ / 群 / 第三方表单等渠道，也不要引入留言板——本站不收集任何表单内容。
+- 文案常量集中在 `src/components/ContactModal.vue` 的 `CONTACT` 数组（沿用 `PromoSlot` 的 `promo` 做法），**不进 `src/data/`**，不发网络请求。
+- 微信不提供「加好友」的网页深链，也拿不到可扫描的加好友二维码，因此微信行只做**展示 + 一键复制**，并给出「到微信搜索该微信号」的引导；不要放生成出来的假二维码图。
+- 复制用 `navigator.clipboard.writeText()`；失败（未授权 / 非安全上下文）时静默不显示“已复制”。联系值本身可见且 `user-select: all`，用户可长按选中，所以**不做 `execCommand` 回退**。
+- 邮箱行额外给一个 `mailto:` 直发链接（主题预填，`encodeURIComponent` 生成）。
+- 与站点版本记录一样：**不新增路由**，用 fixed 覆盖层弹窗，避免影响 `scrollBehavior` 返回 `false` 带来的滚动连续性。
+
 ## 交互约束清单
 
 - [ ] 路由切换后滚动位置不变（`scrollBehavior` 返回 `false`）。
@@ -81,3 +93,4 @@
 - [ ] 样式改动同时看 PC（宽屏换行）与移动端（横向滚动）两种形态。
 - [ ] **整页不得横向滚动**：各断点下 `documentElement.scrollWidth === clientWidth`。装饰性出血（hero 光晕）由 `.app-shell { overflow-x: clip }` 收在视口内（`clip` 不建滚动容器、也不成为 fixed 的包含块）；内部含不可收缩内容的栅格/弹性项必须显式 `min-width: 0`（`min-width: auto` 会把 min-content 逐级顶穿到整页），组件内滚动交给自己的 `overflow-x: auto`。
 - [ ] 拼进 HTML 的上游文本一律先过 `escapeHtml`（当前唯一 HTML sink 是 tooltip formatter），全站不使用 `v-html`。
+- [ ] 联系方式仅微信 + 邮箱两条静态展示，走 `ContactModal` 弹窗，不新增路由、不发网络请求、不引入表单。

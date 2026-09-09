@@ -5,6 +5,17 @@
 
 export const CHANGELOG = [
 	{
+		version: '1.6.0',
+		date: '2026-09-08',
+		title: '新增联系方式入口',
+		items: [
+			{
+				type: 'feature',
+				text: '页脚新增“联系我们”入口：可查看微信号 cduyzh（一键复制后到微信搜索添加好友）与邮箱 cduyzh@gmail.com（一键复制或直接发邮件）。本站仅此两种联系渠道，不设留言板与表单。',
+			},
+		],
+	},
+	{
 		version: '1.5.2',
 		date: '2026-09-08',
 		title: '轮播标题跟随最新赛季名',

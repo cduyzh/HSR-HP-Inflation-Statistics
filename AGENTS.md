@@ -100,6 +100,7 @@
 - `src/views/SeasonDetailPage.vue`：赛季详情页（效果 + 节点/波次怪物卡片）
 - `src/components/MonsterList.vue`：节点/波次怪物卡片渲染（图片/弱点/HP/xN）
 - `src/components/ChangelogModal.vue`：站点更新记录弹窗（页脚入口 + 时间线展示，数据维护见 `src/data/changelog.js` 与 `docs/agents/ui-interaction.md`）
+- `src/components/ContactModal.vue`：联系方式弹窗（页脚“联系我们”入口，微信号与邮箱文案常量维护在组件内）
 
 ### 当前交互约束
 
@@ -109,6 +110,7 @@
 - 详情页加载态需要保留足够页面高度，避免页面瞬时变短导致浏览器把当前滚动值夹断。
 - **整页不得横向滚动**（各断点 `documentElement.scrollWidth === clientWidth`）：装饰性出血由 `App.vue` 的 `.app-shell { overflow-x: clip }` 收口；内部含不可收缩内容的栅格/弹性项必须显式 `min-width: 0`，组件内滚动交给自己的 `overflow-x: auto`。
 - 拼进 HTML 的上游文本必须先过 `escapeHtml`（唯一 HTML sink 是趋势图 tooltip 的 `formatter`），全站不使用 `v-html`。
+- 页脚固定为两个入口（更新记录 + 联系我们，共用 `.footer-btn`）；联系渠道仅微信 `cduyzh` 与邮箱 `cduyzh@gmail.com` 两种，不做留言板/表单，也不为联系方式新增路由。
 
 ### 组件布局约定
 

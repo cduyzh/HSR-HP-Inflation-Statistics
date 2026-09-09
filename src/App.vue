@@ -19,6 +19,7 @@
   } from "./data/changelog";
   import PromoSlot from "./components/PromoSlot.vue";
   import ChangelogModal from "./components/ChangelogModal.vue";
+  import ContactModal from "./components/ContactModal.vue";
 
   const route = useRoute();
   const router = useRouter();
@@ -34,6 +35,8 @@
       changelogUnread.value = false;
     }
   }
+
+  const contactOpen = ref(false);
 
   const mode = computed(() => {
     if (route.name === "trends") return route.params.mode;
@@ -273,24 +276,37 @@
       <span class="footer-muted"
         >提示：首次加载会拉取并计算大量怪物数值，建议等缓存建立后再切换版本。</span
       >
-      <button
-        class="footer-changelog"
-        type="button"
-        aria-label="查看站点更新记录"
-        @click="openChangelog">
-        <span class="footer-changelog-label">更新记录</span>
-        <span class="footer-changelog-ver">v{{ appVersion }}</span>
-        <span
-          v-if="changelogUnread"
-          class="footer-changelog-new"
-          >NEW</span
-        >
-      </button>
+      <div class="footer-actions">
+        <button
+          class="footer-btn"
+          type="button"
+          aria-label="查看站点更新记录"
+          @click="openChangelog">
+          <span class="footer-btn-label">更新记录</span>
+          <span class="footer-btn-ver">v{{ appVersion }}</span>
+          <span
+            v-if="changelogUnread"
+            class="footer-btn-new"
+            >NEW</span
+          >
+        </button>
+        <button
+          class="footer-btn"
+          type="button"
+          aria-label="查看联系方式"
+          @click="contactOpen = true">
+          <span class="footer-btn-label">联系我们</span>
+        </button>
+      </div>
     </footer>
 
     <ChangelogModal
       :open="changelogOpen"
       @close="changelogOpen = false" />
+
+    <ContactModal
+      :open="contactOpen"
+      @close="contactOpen = false" />
   </div>
 </template>
 
@@ -675,7 +691,14 @@
     line-height: 1.5;
   }
 
-  .footer-changelog {
+  .footer-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .footer-btn {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -695,15 +718,15 @@
       background 160ms ease;
   }
 
-  .footer-changelog:hover,
-  .footer-changelog:focus-visible {
+  .footer-btn:hover,
+  .footer-btn:focus-visible {
     color: var(--text);
     border-color: color-mix(in oklab, var(--acc2) 52%, var(--line));
     background: color-mix(in oklab, var(--acc2) 8%, var(--surface-soft));
     outline: none;
   }
 
-  .footer-changelog-ver {
+  .footer-btn-ver {
     padding: 2px 8px;
     border-radius: 999px;
     border: 1px solid color-mix(in oklab, var(--line-strong) 52%, transparent);
@@ -714,7 +737,7 @@
     font-weight: 660;
   }
 
-  .footer-changelog-new {
+  .footer-btn-new {
     padding: 2px 7px;
     border-radius: 999px;
     background: linear-gradient(135deg, var(--acc), var(--acc2));
