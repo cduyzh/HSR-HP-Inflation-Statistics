@@ -28,9 +28,10 @@
 ### HpTrendsPage.vue（趋势页）
 
 - 看板数值卡（`StatCard`）+ 折线图（`EChartView`）+ 期数列表（`SeasonRail`）。
-- 星启筛选 `starFilter`：`all / star / nostar`；peak 不区分星启。
+- 星启筛选 `starFilter`：`all / star / nostar`；peak 不区分星启（切到 peak 会把 `starFilter` 复位为 `all`）。
+- **`模式 + starFilter` 共同构成取数口径**：口径变化时（点三枚星启按钮、切模式）期数选中集一律重置为新口径的**全集**，不能与旧选中集取交集——否则「全部 → 星启 → 全部」会停在星启那几期，点「全部」看起来毫无反应。只有同口径内的重载（如失败重试）才用交集保留 `SeasonRail` 上的手动勾选。
 - 数据流：`getHsrVersions()` → `getSeasons()` → `getTrend()`（`onProgress` 驱动进度）。
-- 每次重载用 `AbortController` 中止上一次请求；切换模式/筛选同理。
+- 每次重载用 `AbortController` 中止上一次请求，并配自增序号守卫：只有仍是最新一次请求时才写回 `seasons` / `trend` / `error` 与 `loading`，否则被中止的上一次请求会在新请求还在加载时把 `loading` 提前置 false，图表停留在旧口径数据上。
 
 ### SeasonDetailPage.vue（赛季详情页）
 

@@ -32,6 +32,8 @@ const error = ref('')
 const progress = ref({ done: 0, total: 0 })
 
 let ac = null
+let loadedScope = ''
+let loadSeq = 0
 
 const modeLabel = computed(() => {
   const m = props.mode
@@ -68,15 +70,16 @@ async function ensureVersion() {
   ver.value = res.latest
 }
 
-function syncSelectedSeasonIds(nextSeasons) {
+function syncSelectedSeasonIds(nextSeasons, reset) {
   const availableIds = nextSeasons.map(it => it.id)
-  const nextSelected = selectedSeasonIds.value.filter(id => availableIds.includes(id))
-  selectedSeasonIds.value = nextSelected.length ? nextSelected : availableIds
+  const kept = reset ? [] : selectedSeasonIds.value.filter(id => availableIds.includes(id))
+  selectedSeasonIds.value = kept.length ? kept : availableIds
 }
 
 async function load() {
   stopLoading()
   ac = new AbortController()
+  const seq = ++loadSeq
 
   loading.value = true
   error.value = ''
@@ -85,21 +88,27 @@ async function load() {
   try {
     await ensureVersion()
     const nextFilter = props.mode === 'peak' ? 'all' : starFilter.value
+    const scope = `${props.mode}:${nextFilter}`
+    const resetSelection = scope !== loadedScope
+    loadedScope = scope
     const list = await getSeasons(props.mode, ver.value, { starFilter: nextFilter, signal: ac.signal })
+    if (seq !== loadSeq) return
     seasons.value = list
-    syncSelectedSeasonIds(list)
+    syncSelectedSeasonIds(list, resetSelection)
 
     const t = await getTrend(props.mode, ver.value, list, {
       signal: ac.signal,
       onProgress(p) {
-        progress.value = { done: p.done, total: p.total }
+        if (seq === loadSeq) progress.value = { done: p.done, total: p.total }
       },
     })
+    if (seq !== loadSeq) return
     trend.value = t
   } catch (e) {
+    if (seq !== loadSeq) return
     if (e?.name !== 'AbortError') error.value = e?.message || String(e)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
