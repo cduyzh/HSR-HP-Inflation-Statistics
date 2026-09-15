@@ -111,10 +111,12 @@ export async function getSeasons(modeKey, ver, {starFilter = 'all', signal, forc
   return seasons
 }
 
-// 当前数据源不发布 cache-plan.json：直接从期数索引推导各模式当前赛季（去重后的最大 id）。
-export async function getCurrentSeasonIds(ver, {signal, force = false} = {}) {
+// 当前数据源不发布 cache-plan.json：直接从期数索引推导当前赛季（去重后的最大 id）。
+// options.modes 可限定模式子集（如首页轮播只用三种），默认全量。
+export async function getCurrentSeasonIds(ver, {signal, force = false, modes} = {}) {
+  const modeKeys = Array.isArray(modes) && modes.length ? modes : Object.keys(MODES)
   const entries = await Promise.all(
-    Object.keys(MODES).map(async modeKey => {
+    modeKeys.map(async modeKey => {
       const mode = MODES[modeKey]
       try {
         const listJson = await fetchJson(mode.listPath(ver), {signal, force})
@@ -390,7 +392,7 @@ function seasonTotalForTrend(modeKey, stages = []) {
   return stages[stages.length - 1]?.totalHp || 0
 }
 
-export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force = false} = {}) {
+export async function getTrend(modeKey, ver, seasons, {signal, onProgress, onItems, force = false} = {}) {
   const list = Array.isArray(seasons) ? seasons : []
   const mode = MODES[modeKey]
   if (!mode) throw new Error(`未知模式：${modeKey}`)
@@ -399,11 +401,16 @@ export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force
   const ids = list.map(season => toNum(season?.id ?? season))
   // 取数顺序：本地派生结果 -> 云端预计算 -> 实时复算；每一层只补齐还缺的期数。
   const resolved = new Map()
+  const emitItems = () => {
+    if (resolved.size) onItems?.([...resolved.values()].filter(item => ids.includes(item.id)))
+  }
   if (!force) {
     for (const item of readTrendCache(ver, modeKey) || []) {
       const id = toNum(item?.id)
       if (id && Number.isFinite(Number(item?.total))) resolved.set(id, item)
     }
+    // 本地派生缓存部分命中时先出已得部分
+    emitItems()
   }
   if (resolved.size && ids.every(id => resolved.has(id))) {
     onProgress?.({done: ids.length, total: ids.length})
@@ -416,6 +423,7 @@ export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force
       const id = toNum(item?.id)
       if (id && !resolved.has(id)) resolved.set(id, item)
     }
+    emitItems()
   }
   if (resolved.size && ids.every(id => resolved.has(id))) {
     writeTrendCache(ver, modeKey, [...resolved.values()])
@@ -427,7 +435,7 @@ export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force
   const ctx = await getHpContext(ver, {signal, force})
   let done = 0
 
-  const computed = await mapWithConcurrency(pending, FALLBACK_CONCURRENCY, async season => {
+  await mapWithConcurrency(pending, FALLBACK_CONCURRENCY, async season => {
     const id = toNum(season?.id ?? season)
     const detail = await fetchJson(mode.detailPath(ver, id, 'zh'), {signal, force})
     const stages = pickStages(modeKey, detail)
@@ -442,10 +450,12 @@ export async function getTrend(modeKey, ver, seasons, {signal, onProgress, force
 
     done += 1
     onProgress?.({done, total: pending.length, id})
+    // 先落进 resolved 再上报，页面才能拿到逐期增长的部分结果
+    resolved.set(id, item)
+    emitItems()
     return item
   })
 
-  for (const item of computed) resolved.set(item.id, item)
   writeTrendCache(ver, modeKey, [...resolved.values()])
   return ids.map(id => resolved.get(id))
 }

@@ -72,6 +72,7 @@
 
 - `DATA_SITE = 'https://static.nanoka.cc'`：所有 JSON 由 `fetchJson()` 直连该站点读取，并写入按版本号隔离的内存 + localStorage 缓存；请求失败时回退到上一次成功的本地缓存。
 - 趋势取数三级顺序：本地派生缓存 → `/hsr/<ver>/computed/endgame/*` 预计算（仅接受 `schemaVersion: 1` 且 `ver` 匹配）→ 实时复算，每层只补齐还缺的期数；当前数据源未发布预计算目录，命中本地缓存即零数据源请求。
+- 实时复算期间 `getTrend` 用 `onItems` 分批回填已算好的期数，趋势页**先出图再补齐**（首访体验）；页面侧必须保留 `loadSeq` 守卫。
 - 仓库不再保留本地 JSON 离线副本；`pnpm sync:data -- --download` 只用于排障。
 
 ### HP 计算与怪物信息
@@ -96,9 +97,10 @@
 
 ### UI 结构
 
-- `src/views/HpTrendsPage.vue`：趋势页（看板 + 折线图 + 期数列表）
+- `src/views/HpTrendsPage.vue`：趋势页（看板 + 折线图 + 期数列表）。折线图数据点可点击进对应期数详情；期数卡片直接显示每期总 HP 与环比。
 - `src/views/SeasonDetailPage.vue`：赛季详情页（效果 + 节点/波次怪物卡片）
 - `src/components/MonsterList.vue`：节点/波次怪物卡片渲染（图片/弱点/HP/xN）
+- `src/composables/useModalDismiss.js`：覆盖层弹窗共用行为（Esc 关闭、body 滚动锁定与补偿、焦点落到关闭按钮），`ChangelogModal` 与 `ContactModal` 共用
 - `src/components/ChangelogModal.vue`：站点更新记录弹窗（页脚入口 + 时间线展示，数据维护见 `src/data/changelog.js` 与 `docs/agents/ui-interaction.md`）
 - `src/components/ContactModal.vue`：联系方式弹窗（页脚“联系我们”入口，微信号与邮箱文案常量维护在组件内）
 
@@ -111,6 +113,11 @@
 - **整页不得横向滚动**（各断点 `documentElement.scrollWidth === clientWidth`）：装饰性出血由 `App.vue` 的 `.app-shell { overflow-x: clip }` 收口；内部含不可收缩内容的栅格/弹性项必须显式 `min-width: 0`，组件内滚动交给自己的 `overflow-x: auto`。
 - 拼进 HTML 的上游文本必须先过 `escapeHtml`（唯一 HTML sink 是趋势图 tooltip 的 `formatter`），全站不使用 `v-html`。
 - 页脚固定为两个入口（更新记录 + 联系我们，共用 `.footer-btn`）；联系渠道仅微信 `cduyzh` 与邮箱 `cduyzh@gmail.com` 两种，不做留言板/表单，也不为联系方式新增路由。
+- 顶部模式切换**不做同模式早退**：详情页点当前模式 tab 回到该模式趋势页。
+- 未知路径由路由 catch-all 回 `/trends/moc`；未知 `mode` 由趋势页 `router.replace` 回默认模式，详情页则落错误态（`mode`/`id` 不合法不进取数层）。
+- `router.afterEach` 只写 `document.title`（区分模式与期数，便于分享与多标签页），不接管滚动。
+- 展示数值统一走 `fmtInt` / `fmtShort`；可缺失字段用 `x == null ? '-' : fmtInt(x)`，不要用 `x?.toLocaleString() ?? '-'`（会渲染出 "undefined"）。
+- 覆盖层弹窗的 Esc + 滚动锁定 + 焦点管理统一走 `src/composables/useModalDismiss.js`。
 
 ### 组件布局约定
 

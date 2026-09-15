@@ -53,6 +53,11 @@
 
   const liveVersion = ref("-");
   const activeSlideIndex = ref(0);
+  // 悬停/聚焦时暂停轮播；prefers-reduced-motion 下完全不自动播
+  const slidePaused = ref(false);
+  const reduceMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   let slideTimer = null;
 
   const bannerModes = [
@@ -100,10 +105,13 @@
       // 保持默认轮播占位，避免局部数据缺失影响首页主体
     }
 
-    slideTimer = window.setInterval(() => {
-      activeSlideIndex.value =
-        (activeSlideIndex.value + 1) % heroSlides.value.length;
-    }, 5200);
+    if (!reduceMotion) {
+      slideTimer = window.setInterval(() => {
+        if (slidePaused.value) return;
+        activeSlideIndex.value =
+          (activeSlideIndex.value + 1) % heroSlides.value.length;
+      }, 5200);
+    }
   });
 
   onBeforeUnmount(() => {
@@ -127,7 +135,10 @@
     const versions = await getHsrVersions();
     const ver = versions.latest;
     const locale = "zh";
-    const seasonIds = await getCurrentSeasonIds(ver);
+    // 轮播只覆盖 bannerModes 三种模式，不必为 peak 多拉一份期数索引
+    const seasonIds = await getCurrentSeasonIds(ver, {
+      modes: bannerModes.map((item) => item.key),
+    });
     const slides = await Promise.all(
       bannerModes.map(async (item) => {
         const seasonId = Number(seasonIds?.[item.key]);
@@ -164,7 +175,7 @@
   }
 
   function goMode(nextMode) {
-    if (nextMode === mode.value) return;
+    // 不做同模式早退：详情页上点当前模式应回到该模式的趋势页
     router.push({ name: "trends", params: { mode: nextMode } });
   }
 </script>
@@ -208,7 +219,12 @@
           </div>
         </div>
 
-        <div class="hero-visual">
+        <div
+          class="hero-visual"
+          @mouseenter="slidePaused = true"
+          @mouseleave="slidePaused = false"
+          @focusin="slidePaused = true"
+          @focusout="slidePaused = false">
           <component
             :is="activeSlide.href ? 'a' : 'article'"
             class="hero-banner"
@@ -274,7 +290,7 @@
 
     <footer class="footer">
       <span class="footer-muted"
-        >提示：首次加载会拉取并计算大量怪物数值，建议等缓存建立后再切换版本。</span
+        >提示：首次加载会拉取并计算各期怪物血量，结果按游戏版本缓存在本机，数据更新后自动失效重算。</span
       >
       <div class="footer-actions">
         <button

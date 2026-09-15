@@ -4,7 +4,7 @@
   import EffectList from "../components/EffectList.vue";
   import MonsterList from "../components/MonsterList.vue";
   import SegmentTabs from "../components/SegmentTabs.vue";
-  import { getHsrVersions } from "../services/hsrStatic";
+  import { MODES, getHsrVersions } from "../services/hsrStatic";
   import { getSeasonComputed, getSeasons } from "../services/endgame";
   import { fmtInt, fmtShort } from "../utils/format";
 
@@ -27,6 +27,7 @@
   const showStageSelector = computed(() => props.mode === "peak");
 
   let ac = null;
+  let loadSeq = 0;
   let closeSwitchTimer = null;
 
   function stopLoading() {
@@ -47,9 +48,22 @@
   async function load() {
     stopLoading();
     ac = new AbortController();
+    // 与趋势页同款序号守卫：被中止的上一次请求不得提前写 loading/error
+    const seq = ++loadSeq;
 
     loading.value = true;
     error.value = "";
+
+    if (!MODES[props.mode]) {
+      error.value = `未知模式：${props.mode}`;
+      loading.value = false;
+      return;
+    }
+    if (!Number.isInteger(props.id)) {
+      error.value = `无效的期数 ID：${props.id}`;
+      loading.value = false;
+      return;
+    }
 
     try {
       await ensureVersion();
@@ -62,14 +76,16 @@
           signal: ac.signal,
         }),
       ]);
+      if (seq !== loadSeq) return;
       data.value = computedSeason;
       seasons.value = nextSeasons;
       if (showStageSelector.value)
         stageKey.value = computedSeason.stages?.[0]?.key || "";
     } catch (e) {
+      if (seq !== loadSeq) return;
       if (e?.name !== "AbortError") error.value = e?.message || String(e);
     } finally {
-      loading.value = false;
+      if (seq === loadSeq) loading.value = false;
     }
   }
 

@@ -11,19 +11,26 @@
 | `/`                 | —                  | 重定向 `/trends/moc`         |
 | `/trends/:mode`     | `HpTrendsPage`     | mode ∈ moc/fiction/doom/peak |
 | `/season/:mode/:id` | `SeasonDetailPage` | id 转 Number 传入            |
+| `/:pathMatch(.*)*`  | —                  | 未知路径重定向 `/trends/moc` |
 
 `scrollBehavior()` 返回 `false`：**路由不接管滚动**。模式切换、进详情、返回都保持浏览器当前滚动位置。改动滚动策略前必须先验证趋势页 ↔ 详情页的滚动连续性。
+
+`router.afterEach` 只负责 `document.title`（`忘却之庭血量趋势 · 终局血量趋势` / `忘却之庭 #1036 · 终局血量趋势`），供多标签页与分享场景辨识；**不要**在这里做滚动或取数。`index.html` 的 `description` / OG 标签是静态兜底，不随路由更新（本站无 SSR）。
 
 ## 页面职责
 
 ### App.vue（外壳）
 
 - 固定模式切换栏 + 普通文档流轮播 banner（`public/banners/*` 自有资源）。banner 是静态数组配置，含模式标签、标题、备注与跳转链接。
+- 轮播 5.2s 自动切换，但**鼠标悬停 / 键盘聚焦 `.hero-visual` 时暂停**（`slidePaused`），且 `prefers-reduced-motion: reduce` 下不启动定时器；改轮播节奏时保留这两条，否则用户读不完 banner 文案。
 - 相关项目推广位 `PromoSlot` 是 `hero-shell` 的**第一个子节点**（固定切换栏之下、hero 面板之上），随头部普通文档流滚动；**不要**再放回 main 与 footer 之间，页脚只保留“更新记录”“联系我们”两个入口。
 - 页脚两个入口放在 `.footer-actions` 组内，共用 `.footer-btn` 基类（`.footer-btn-ver` / `.footer-btn-new` 只挂在更新记录按钮上）：
   - `更新记录`：展示站点版本号，有未读版本时带 `NEW` 徽标；点击打开 `ChangelogModal`。
   - `联系我们`：纯文字 pill；点击打开 `ContactModal`，联系方式是组件内静态常量，无未读态。
 - **不要**恢复“顶部大区随滚动自动收起”的旧交互——会遮挡 PC 阅读区。
+- 模式切换按钮**不做同模式早退**（`goMode` 直接 push）：在详情页点当前模式的 tab 应回到该模式趋势页，早退会造成“点了没反应”。
+- 轮播只覆盖 `bannerModes` 三种模式，取当前赛季时传 `getCurrentSeasonIds(ver, { modes })`，不要为 peak 多拉一份期数索引。
+- 页脚提示只描述“首次加载会计算、结果按游戏版本缓存在本机、版本更新自动失效”，**不要**再写“建议切换版本”（UI 上没有版本切换入口）。
 
 ### HpTrendsPage.vue（趋势页）
 
@@ -31,12 +38,17 @@
 - 星启筛选 `starFilter`：`all / star / nostar`；peak 不区分星启（切到 peak 会把 `starFilter` 复位为 `all`）。
 - **`模式 + starFilter` 共同构成取数口径**：口径变化时（点三枚星启按钮、切模式）期数选中集一律重置为新口径的**全集**，不能与旧选中集取交集——否则「全部 → 星启 → 全部」会停在星启那几期，点「全部」看起来毫无反应。只有同口径内的重载（如失败重试）才用交集保留 `SeasonRail` 上的手动勾选。
 - 数据流：`getHsrVersions()` → `getSeasons()` → `getTrend()`（`onProgress` 驱动进度）。
+- **增量出图**：`getTrend` 的 `onItems` 回调在复算过程中分批回填已得结果，首访（无本地缓存）时图表先画已完成期数、随后补齐；命中缓存时该回调只发一次全量。改造成“一次性赋值”会让首访图表等到全部复算完成才出现。
+- **点击数据点进详情**：`EChartView` 向上 emit echarts 的 `click`，页面用 `params.dataIndex` 映射 `filteredTrend` 拿 id。`dataIndex` 依赖“图表 series 顺序 === `filteredTrend` 顺序”，不要在其中夹排序。
+- 未知 `mode`（手输或旧链接）在 `load()` 内 `router.replace` 回 `/trends/moc`，不停在永不恢复的失败态。
 - 每次重载用 `AbortController` 中止上一次请求，并配自增序号守卫：只有仍是最新一次请求时才写回 `seasons` / `trend` / `error` 与 `loading`，否则被中止的上一次请求会在新请求还在加载时把 `loading` 提前置 false，图表停留在旧口径数据上。
 
 ### SeasonDetailPage.vue（赛季详情页）
 
 - 展示整期效果 + 关卡切换（仅 peak 显示）+ 各节点的怪物卡片（`MonsterList`）；doom 有按节点分栏的效果（`EffectList`）。
 - 有赛季切换浮层（`switchOpen`），可跳相邻赛季。
+- **与趋势页同款的 `loadSeq` 序号守卫**：快速连跳赛季时，被中止的上一次请求不得提前把 `loading` 置 false（否则会闪一下空白内容）。新增异步写回点时必须带 `if (seq !== loadSeq) return`。
+- 进 `load()` 先校验 `MODES[props.mode]` 与 `Number.isInteger(props.id)`，不合法直接落错误态（`/season/xxx/1`、`?id=NaN` 都走这里），不要把异常留给取数层。
 - **加载态必须保留足够页面高度**：页面瞬时变短会把浏览器当前滚动值夹断，返回时位置丢失。
 - **peak 模式约束**：顶部“赛季增益效果”区块（标题为 `data.effects`，源是 `detail.boss_config.buff_list`）只在选中 `boss_level`（将杀王棋）或 `boss_config`（将杀王棋·绝境）时才渲染，对应 stage 携带 `isBossStage: true` 标记；选中前置关卡时该区块隐藏，`activeStage.effects`（当前关卡效果）不受影响。
 
@@ -44,15 +56,19 @@
 
 | 组件                 | 职责              | 关键点                                                                                        |
 | -------------------- | ----------------- | --------------------------------------------------------------------------------------------- |
-| `EChartView.vue`     | ECharts 封装      | 接收 option，负责 resize 与销毁                                                               |
-| `MonsterList.vue`    | 节点/波次怪物卡片 | 图片直连数据源，缺图占位；弱点、HP、xN 聚合、多阶段倍率标记                                   |
-| `SeasonRail.vue`     | 期数列表          | 多选（`toggle`）、`select-recent/select-all`、`open` 进详情                                   |
+| `EChartView.vue`     | ECharts 封装      | 接收 option，负责 resize 与销毁；向上 emit echarts `click`；option 是整体替换的 computed，**浅监听**即可（deep 会白扫大数组） |
+| `MonsterList.vue`    | 节点/波次怪物卡片 | 图片直连数据源，缺图占位；弱点、HP、xN 聚合、多阶段倍率标记；数值一律 `fmtInt`，字段缺失显示 `-`（不要 `x?.toLocaleString() ?? '-'`，可选链结果为 undefined 时 `??` 不生效会渲染出 "undefined"） |
+| `SeasonRail.vue`     | 期数列表          | 多选（`toggle`）、`select-recent/select-all`、`open` 进详情；`stats` prop（`{ [id]: { total } }`）让卡片直接显示总 HP 与环比，未回填时显示“未计算” |
 | `SegmentTabs.vue`    | 模式/关卡切换     | `layout="fill"` 等宽铺满；默认 `rail` 长标签                                                  |
 | `StatCard.vue`       | 看板数值卡        | 纯展示                                                                                        |
 | `EffectList.vue`     | 环境/赛季效果     | 纯展示 `{ name, desc }[]`                                                                     |
-| `ChangelogModal.vue` | 站点更新记录弹窗  | Props `open`，Emits `close`；Esc/遮罩点击关闭；打开时锁定 body 滚动并补偿滚动条宽度，关闭恢复 |
-| `ContactModal.vue`   | 联系方式弹窗      | Props `open`，Emits `close`；滚动锁定与关闭交互同上（逻辑各自持有一份，未抽公共 composable）；复制走 `navigator.clipboard`，邮箱另有 `mailto:` 直发 |
+| `ChangelogModal.vue` | 站点更新记录弹窗  | Props `open`，Emits `close`；遮罩点击关闭；Esc / 滚动锁定 / 焦点管理来自 `useModalDismiss`     |
+| `ContactModal.vue`   | 联系方式弹窗      | Props `open`，Emits `close`；同上共用 `useModalDismiss`（组件内只留“关闭时清 copiedKey”这类自有逻辑）；复制走 `navigator.clipboard`，邮箱另有 `mailto:` 直发 |
 | `PromoSlot.vue`      | 相关项目推广位    | 纯展示，文案集中在组件内 `promo` 常量；渲染在头部顶端，外链 `target="_blank" rel="noopener noreferrer"` |
+
+### 弹窗共用行为（`src/composables/useModalDismiss.js`）
+
+`useModalDismiss({ open, close, focusRef })` 收口三件事：Esc 关闭、打开时锁定 `body` 滚动并补偿滚动条宽度（关闭时还原原值）、焦点落到关闭按钮。**新增覆盖层弹窗必须复用它**，不要在组件里再抄一份（历史上两个弹窗各持一份，已合并）。`open` 传 getter（`() => props.open`）即可跟随 props 变化。
 
 ### SegmentTabs 布局
 
@@ -95,3 +111,7 @@
 - [ ] **整页不得横向滚动**：各断点下 `documentElement.scrollWidth === clientWidth`。装饰性出血（hero 光晕）由 `.app-shell { overflow-x: clip }` 收在视口内（`clip` 不建滚动容器、也不成为 fixed 的包含块）；内部含不可收缩内容的栅格/弹性项必须显式 `min-width: 0`（`min-width: auto` 会把 min-content 逐级顶穿到整页），组件内滚动交给自己的 `overflow-x: auto`。
 - [ ] 拼进 HTML 的上游文本一律先过 `escapeHtml`（当前唯一 HTML sink 是 tooltip formatter），全站不使用 `v-html`。
 - [ ] 联系方式仅微信 + 邮箱两条静态展示，走 `ContactModal` 弹窗，不新增路由、不发网络请求、不引入表单。
+- [ ] 覆盖层弹窗的 Esc + 滚动锁定走 `useModalDismiss`，不在组件内复制。
+- [ ] 展示数值走 `fmtInt` / `fmtShort`，可缺失字段用 `x == null ? '-' : fmtInt(x)`（不要用 `?.toLocaleString() ?? '-'`）。
+- [ ] 详情页与趋势页的异步写回都带 `loadSeq` 守卫；页面级入参（mode/id）先校验再取数。
+- [ ] 期数卡片与趋势图的数值来自同一份 `trend` 结果，不要在 `SeasonRail` 里另算口径。

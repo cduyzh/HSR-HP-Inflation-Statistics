@@ -128,3 +128,45 @@ test('预计算缺失时使用受控并发复算并保持输入顺序', async ()
   assert.ok(maxActiveDetailRequests > 1)
   assert.ok(maxActiveDetailRequests <= 6)
 })
+
+test('getTrend 复算过程通过 onItems 增量回填已得结果', async () => {
+  const base = 'https://static.nanoka.cc'
+  const resources = new Map([
+    [`${base}/hsr/incremental/monster.json`, { 1001: { zh: '测试怪物', weak: [] } }],
+    [`${base}/hsr/incremental/monstervalue.json`, { 1001: { HPBase: 100, SpeedBase: 100, child: [] } }],
+    [`${base}/hsr/incremental/HardLevelGroup.json`, [{ HardLevelGroup: 1, Level: 1, HPRatio: 2 }]],
+    [`${base}/hsr/incremental/EliteGroup.json`, [{ EliteGroup: 1, HPRatio: 3 }]],
+    [`${base}/hsr/incremental/InfiniteEliteGroup.json`, []],
+  ])
+
+  installBrowser(async path => {
+    if (path === `${base}/hsr/incremental/computed/endgame/trends.json`) return jsonResponse({}, false)
+    if (resources.has(path)) return jsonResponse(resources.get(path))
+    const id = Number(path.slice(`${base}/hsr/incremental/zh/maze/`.length).replace('.json', ''))
+    // 制造确定的完成顺序（1 期先返回），才能断言增量分批回填
+    await new Promise(resolve => setTimeout(resolve, id === 1 ? 1 : 30))
+    return jsonResponse([{
+      id: id * 10,
+      name: `赛季 ${id}`,
+      event_id_list1: [{
+        level: 1,
+        hard_level_group: 1,
+        elite_group: 1,
+        stage_id: id,
+        monster_list: [{ 1: 1001 }],
+      }],
+    }])
+  })
+
+  const batches = []
+  const result = await getTrend('moc', 'incremental', [{ id: 1 }, { id: 2 }], {
+    onItems: partial => batches.push(partial.map(item => item.id)),
+  })
+
+  assert.deepEqual(result.map(item => item.id), [1, 2])
+  // 并发下先完成哪一期不确定：只断言首批是子集、末批补全且只增量增长
+  assert.ok(batches.length >= 2)
+  assert.equal(batches[0].length, 1)
+  assert.deepEqual(batches[batches.length - 1].slice().sort((a, b) => a - b), [1, 2])
+  assert.ok(batches.every((batch, index) => index === 0 || batch.length >= batches[index - 1].length))
+})

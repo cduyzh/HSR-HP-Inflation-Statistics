@@ -83,6 +83,7 @@ https://static.nanoka.cc/
 - 接受条件（`isCompatiblePrecomputedRoot`，`endgame.js:20`）：`schemaVersion === 1` 且 `ver` 一致；若数据源发布了 `releaseId` 则还要求匹配，未发布则跳过该校验。
 - 单期文件还需 `modeKey`、`id` 匹配且 `stages` 为数组。
 - **当前数据源未发布该目录**：单期详情每次都回退实时复算；趋势则先查本地派生缓存，未命中才探测 `trends.json`（当前必然 404）再走 6 路受控并发复算（`FALLBACK_CONCURRENCY`）。
+- 复算过程中 `getTrend` 通过 `onItems` 回调**分批把已得结果回填给页面**（每完成一期一次），首访也能先出图再补齐；页面侧要保留 `loadSeq` 守卫，避免被中止的旧请求继续回填。
 - 若将来改变统计口径导致预计算结构变化，必须提升 `PRECOMPUTED_SCHEMA_VERSION`（`endgame.js:4`）。
 
 ## 怪物图片

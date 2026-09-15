@@ -13,6 +13,8 @@ const props = defineProps({
   height: { type: Number, default: 320 },
 })
 
+const emit = defineEmits(['click'])
+
 const el = ref(null)
 let chart = null
 let ro = null
@@ -21,6 +23,7 @@ function mountChart() {
   if (!el.value) return
   chart = echarts.init(el.value, null, { renderer: 'canvas' })
   chart.setOption(props.option, { notMerge: true, lazyUpdate: true })
+  chart.on('click', params => emit('click', params))
 
   ro = new ResizeObserver(() => {
     chart?.resize()
@@ -30,12 +33,12 @@ function mountChart() {
 
 onMounted(mountChart)
 
+// option 是整体替换的 computed（每次都是新对象），无需 deep 遍历大数组。
 watch(
   () => props.option,
   next => {
     chart?.setOption(next, { notMerge: true, lazyUpdate: true })
   },
-  { deep: true },
 )
 
 onBeforeUnmount(() => {

@@ -1,9 +1,12 @@
 <script setup>
 import { computed } from 'vue'
+import { fmtPct, fmtShort } from '../utils/format'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
   selectedIds: { type: Array, default: () => [] },
+  // { [id]: { total } }：来自趋势结果，卡片直接展示每期总 HP 与环比
+  stats: { type: Object, default: () => ({}) },
 })
 
 const emit = defineEmits(['toggle', 'select-recent', 'select-all', 'open'])
@@ -24,7 +27,20 @@ function open(id) {
   emit('open', id)
 }
 
-const show = computed(() => props.items.slice().sort((a, b) => b.id - a.id))
+const show = computed(() => {
+  const asc = props.items
+    .slice()
+    .sort((a, b) => a.id - b.id)
+    .map((it, index, arr) => {
+      const stat = props.stats[it.id]
+      const prev = index > 0 ? props.stats[arr[index - 1].id] : null
+      // 最早一期没有环比基准，只留总 HP
+      let delta = null
+      if (stat?.total != null && prev?.total) delta = (stat.total - prev.total) / prev.total
+      return { ...it, total: stat?.total ?? null, delta }
+    })
+  return asc.slice().reverse()
+})
 const selectedSet = computed(() => new Set(props.selectedIds))
 </script>
 
@@ -62,6 +78,10 @@ const selectedSet = computed(() => new Set(props.selectedIds))
           <span class="season-copy">
             <span class="season-id">#{{ s.id }}</span>
             <span class="season-name">{{ s.zh || s.en || s.id }}</span>
+            <span v-if="s.total != null" class="season-hp">
+              {{ fmtShort(s.total) }}<template v-if="s.delta != null">（{{ s.delta > 0 ? '+' : '' }}{{ fmtPct(s.delta) }}）</template>
+            </span>
+            <span v-else class="season-hp muted">未计算</span>
           </span>
         </button>
 
@@ -263,6 +283,19 @@ const selectedSet = computed(() => new Set(props.selectedIds))
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.season-hp {
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 680;
+  color: color-mix(in oklab, var(--acc2) 78%, white);
+  font-variant-numeric: tabular-nums;
+}
+
+.season-hp.muted {
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .season-footer {

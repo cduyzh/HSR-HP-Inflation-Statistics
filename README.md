@@ -4,7 +4,8 @@
 
 ## 功能特性
 
-- **趋势总览**：四种终局模式的累计 HP 折线图、看板数值、期数列表
+- **趋势总览**：四种终局模式的累计 HP 折线图、看板数值、期数列表（卡片带每期总 HP 与环比）
+- **一键下钻**：点击折线图数据点或期数卡片，直达对应期数的赛季详情
 - **赛季详情**：每个赛季的节点 / 波次 / 怪物卡片，含图片、弱点、HP 与多阶段倍率（x2、x3）
 - **星启模式识别**：自动识别并展示「节点 3」与「星启模式」新增关卡
 - **云端预计算**：优先读取数据中心的趋势与单期 HP 派生数据，缺失时自动回退到前端复算
@@ -131,14 +132,16 @@ src/
 │   ├── EChartView.vue       # ECharts 封装
 │   ├── EffectList.vue       # 末日幻影环境效果
 │   ├── MonsterList.vue      # 节点 / 波次怪物卡片
-│   ├── SeasonRail.vue       # 赛季切换
+│   ├── SeasonRail.vue       # 期数列表（含每期总 HP 与环比）
 │   ├── SegmentTabs.vue      # 模式 / 关卡切换
 │   └── StatCard.vue         # 看板数值卡
+├── composables/
+│   └── useModalDismiss.js   # 弹窗共用行为（Esc / 滚动锁定 / 焦点）
 ├── services/
 │   ├── hsrStatic.js         # 数据加载（内存 + localStorage + 本地 JSON）
 │   ├── hpCalc.js            # HP 公式与怪物信息
 │   └── endgame.js           # 终局聚合与趋势
-├── router/             # 路由（保持滚动连续性）
+├── router/             # 路由（保持滚动连续性 + 按路由设置标题）
 ├── utils/format.js     # 数值与文本格式化
 └── styles/app.css      # 全局样式
 ```

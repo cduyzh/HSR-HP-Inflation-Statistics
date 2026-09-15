@@ -1,6 +1,7 @@
 <script setup>
-  import { nextTick, onBeforeUnmount, ref, watch } from "vue";
+  import { ref } from "vue";
   import { APP_VERSION, CHANGELOG } from "../data/changelog";
+  import { useModalDismiss } from "../composables/useModalDismiss";
 
   const props = defineProps({
     open: { type: Boolean, default: false },
@@ -21,45 +22,10 @@
     return TYPE_META[type] || { label: "更新", className: "is-improve" };
   }
 
-  function onKeydown(event) {
-    if (event.key === "Escape") emit("close");
-  }
-
-  let prevOverflow = "";
-  let prevPaddingRight = "";
-
-  function lockBodyScroll() {
-    prevOverflow = document.body.style.overflow;
-    prevPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth;
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeydown);
-  }
-
-  function unlockBodyScroll() {
-    document.body.style.overflow = prevOverflow;
-    document.body.style.paddingRight = prevPaddingRight;
-    window.removeEventListener("keydown", onKeydown);
-  }
-
-  watch(
-    () => props.open,
-    (open) => {
-      if (open) {
-        lockBodyScroll();
-        nextTick(() => closeBtn.value?.focus());
-      } else {
-        unlockBodyScroll();
-      }
-    },
-  );
-
-  onBeforeUnmount(() => {
-    if (props.open) unlockBodyScroll();
+  useModalDismiss({
+    open: () => props.open,
+    close: () => emit("close"),
+    focusRef: closeBtn,
   });
 </script>
 

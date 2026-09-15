@@ -1,15 +1,25 @@
 <script setup>
-import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import SeasonRail from '../components/SeasonRail.vue'
 import SegmentTabs from '../components/SegmentTabs.vue'
 import StatCard from '../components/StatCard.vue'
-import { getHsrVersions } from '../services/hsrStatic'
+import { MODES, getHsrVersions } from '../services/hsrStatic'
 import { getSeasons, getTrend } from '../services/endgame'
 import { escapeHtml, fmtInt, fmtPct, fmtShort } from '../utils/format'
 
 // 图表库按需异步加载，避免 echarts chunk 阻塞看板与统计卡首屏。
-const EChartView = defineAsyncComponent(() => import('../components/EChartView.vue'))
+// loadingComponent 兜住分片下载窗口，避免图表区短暂塌陷。
+const ChartLoadingPlaceholder = {
+  render() {
+    return h('div', { class: 'chart-loading' }, '正在加载图表…')
+  },
+}
+const EChartView = defineAsyncComponent({
+  loader: () => import('../components/EChartView.vue'),
+  loadingComponent: ChartLoadingPlaceholder,
+  delay: 0,
+})
 
 const CHART_HEIGHT = 340
 
@@ -54,6 +64,7 @@ const showStarFilter = computed(() => props.mode !== 'peak')
 const versionLabel = computed(() => (ver.value ? `数据版本 · ${ver.value}` : '数据源'))
 const selectedSeasonIdSet = computed(() => new Set(selectedSeasonIds.value))
 const filteredTrend = computed(() => trend.value.filter(item => selectedSeasonIdSet.value.has(item.id)))
+const statForRail = computed(() => Object.fromEntries(trend.value.map(it => [it.id, it])))
 const emptyStateSub = computed(() => {
   if (trend.value.length && !filteredTrend.value.length) return '请选择至少 1 期，或使用右侧快捷按钮快速筛选。'
   return '尝试切换筛选项，或稍后重试（数据源可能暂时不可用）。'
@@ -86,6 +97,11 @@ async function load() {
   progress.value = { done: 0, total: 0 }
 
   try {
+    // 未知模式（手输/旧链接）直接回默认模式，避免停在永不恢复的失败态
+    if (!MODES[props.mode]) {
+      router.replace({ name: 'trends', params: { mode: 'moc' } })
+      return
+    }
     await ensureVersion()
     const nextFilter = props.mode === 'peak' ? 'all' : starFilter.value
     const scope = `${props.mode}:${nextFilter}`
@@ -100,6 +116,10 @@ async function load() {
       signal: ac.signal,
       onProgress(p) {
         if (seq === loadSeq) progress.value = { done: p.done, total: p.total }
+      },
+      // 首访全量复算时增量回填，先出图再补齐
+      onItems(partial) {
+        if (seq === loadSeq) trend.value = partial
       },
     })
     if (seq !== loadSeq) return
@@ -221,6 +241,12 @@ function goSeason(id) {
   router.push({ name: 'season', params: { mode: props.mode, id } })
 }
 
+// 点击折线数据点直达对应期数的详情页
+function handleChartClick(params) {
+  const item = filteredTrend.value[params?.dataIndex]
+  if (item?.id) goSeason(item.id)
+}
+
 function toggleSeasonSelection(id) {
   if (selectedSeasonIdSet.value.has(id)) {
     selectedSeasonIds.value = selectedSeasonIds.value.filter(it => it !== id)
@@ -286,7 +312,7 @@ function selectAllSeasons() {
               </div>
             </div>
             <div v-if="filteredTrend.length" class="chart-slot" :style="{ minHeight: `${CHART_HEIGHT}px` }">
-              <EChartView :option="chartOption" :height="CHART_HEIGHT" />
+              <EChartView :option="chartOption" :height="CHART_HEIGHT" @click="handleChartClick" />
             </div>
             <div v-else-if="!loading" class="state">
               <div class="state-title">暂无数据</div>
@@ -312,6 +338,7 @@ function selectAllSeasons() {
           <SeasonRail
             :items="seasons"
             :selected-ids="selectedSeasonIds"
+            :stats="statForRail"
             @toggle="toggleSeasonSelection"
             @select-recent="selectRecentSeasons"
             @select-all="selectAllSeasons"
@@ -447,6 +474,14 @@ function selectAllSeasons() {
 
 .chart-body {
   margin-top: 12px;
+}
+
+.chart-loading {
+  display: grid;
+  place-items: center;
+  min-height: 340px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .loading {

@@ -138,17 +138,17 @@ function totalMultiplier(item) {
               <div class="rows">
                 <div class="row">
                   <span class="k">单体HP</span>
-                  <span class="v">{{ m.unitHp?.toLocaleString('en-US') }}</span>
+                  <span class="v">{{ m.unitHp == null ? '-' : fmtInt(m.unitHp) }}</span>
                 </div>
                 <div class="row">
                   <span class="k">速度 SPD</span>
-                  <span class="v">{{ m.spd?.toLocaleString('en-US') ?? '-' }}</span>
+                  <span class="v">{{ m.spd == null ? '-' : fmtInt(m.spd) }}</span>
                 </div>
                 <div class="row">
                   <span class="k">总HP</span>
                   <span class="v">
-                    {{ totalHp(m).toLocaleString('en-US') }}
-                    <template v-if="totalMultiplier(m) > 1">（{{ m.unitHp?.toLocaleString('en-US') }} × {{ totalMultiplier(m) }}）</template>
+                    {{ fmtInt(totalHp(m)) }}
+                    <template v-if="totalMultiplier(m) > 1">（{{ fmtInt(m.unitHp) }} × {{ totalMultiplier(m) }}）</template>
                   </span>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 <script setup>
-  import { nextTick, onBeforeUnmount, ref, watch } from "vue";
+  import { onBeforeUnmount, ref, watch } from "vue";
+  import { useModalDismiss } from "../composables/useModalDismiss";
 
   const props = defineProps({
     open: { type: Boolean, default: false },
@@ -48,47 +49,21 @@
     }, 1800);
   }
 
-  function onKeydown(event) {
-    if (event.key === "Escape") emit("close");
-  }
-
-  let prevOverflow = "";
-  let prevPaddingRight = "";
-
-  function lockBodyScroll() {
-    prevOverflow = document.body.style.overflow;
-    prevPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth =
-      window.innerWidth - document.documentElement.clientWidth;
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeydown);
-  }
-
-  function unlockBodyScroll() {
-    document.body.style.overflow = prevOverflow;
-    document.body.style.paddingRight = prevPaddingRight;
-    window.removeEventListener("keydown", onKeydown);
-  }
+  useModalDismiss({
+    open: () => props.open,
+    close: () => emit("close"),
+    focusRef: closeBtn,
+  });
 
   watch(
     () => props.open,
     (open) => {
-      if (open) {
-        lockBodyScroll();
-        nextTick(() => closeBtn.value?.focus());
-      } else {
-        unlockBodyScroll();
-        copiedKey.value = "";
-      }
+      if (!open) copiedKey.value = "";
     },
   );
 
   onBeforeUnmount(() => {
     if (copiedTimer) window.clearTimeout(copiedTimer);
-    if (props.open) unlockBodyScroll();
   });
 </script>
 
