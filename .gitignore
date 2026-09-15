@@ -22,3 +22,19 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# 仓库对外只维护 README.md 与 CHANGELOG.md
+# 以下为工程文件与内部文档，改为本地维护、不再上传（历史提交里仍可访问）
+/src/
+/tests/
+/scripts/
+/public/
+/docs/
+/index.html
+/vite.config.js
+/package.json
+/pnpm-lock.yaml
+/pnpm-workspace.yaml
+/netlify.toml
+/AGENTS.md
+/logo.png

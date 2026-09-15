@@ -1,181 +1,51 @@
 # HSR 终局血量膨胀看板
 
-统计并可视化《崩坏：星穹铁道》终局内容（**忘却之庭 / 虚构叙事 / 末日幻影 / 异相仲裁**）不同期数的怪物血量膨胀趋势，并支持单期详情查看敌人节点、波次、怪物图片、弱点与血量构成。
+统计并可视化《崩坏：星穹铁道》四种终局内容（**忘却之庭 / 虚构叙事 / 末日幻影 / 异相仲裁**）各期数的怪物血量膨胀趋势，并支持查看单期的敌人节点、波次、怪物图片、弱点与血量构成。
 
-## 功能特性
+> 在线地址：见本仓库 GitHub 页面右侧 *About → Website*。
 
-- **趋势总览**：四种终局模式的累计 HP 折线图、看板数值、期数列表（卡片带每期总 HP 与环比）
-- **一键下钻**：点击折线图数据点或期数卡片，直达对应期数的赛季详情
-- **赛季详情**：每个赛季的节点 / 波次 / 怪物卡片，含图片、弱点、HP 与多阶段倍率（x2、x3）
-- **星启模式识别**：自动识别并展示「节点 3」与「星启模式」新增关卡
-- **云端预计算**：优先读取数据中心的趋势与单期 HP 派生数据，缺失时自动回退到前端复算
-- **多阶段 HP 审计**：忘却之庭 boss 的真实总 HP 需乘 `PhaseList.phase_max_hp_ratio` 总和，支持独立审计脚本
+## 能做什么
 
-## 技术栈
+- **趋势总览**：按模式查看各期数总 HP 折线图、看板统计（最高 / 最低 / 平均 / 起点→最新 / 增长率）
+- **一键下钻**：点击折线图上的数据点或期数卡片，直达对应期数的详情
+- **期数卡片带数值**：期数列表直接显示每期总 HP 与环比涨幅，勾选前就能扫读膨胀幅度
+- **灵活筛选**：按星启 / 非星启筛选期数，或用「近 3 期 / 近 5 期 / 全选」快速组合对比
+- **赛季详情**：按节点与波次展开，含怪物图片、弱点、抗性、数量（x2 / x3）与血量构成
+- **本期效果**：环境效果、赛季效果、末日幻影的分节点效果、异相仲裁的关卡增益与污染等级
+- **移动端可用**：窄屏下长标签改为组件内横向滚动，整页不出现横向滚动条
 
-| 类别   | 选型                                    |
-| ------ | --------------------------------------- |
-| 框架   | Vue 3（`<script setup>`）+ Vue Router 4 |
-| 构建   | Vite                                    |
-| 图表   | ECharts                                 |
-| 包管理 | pnpm（要求 Node ≥ 24）                  |
-| 部署   | Netlify                                 |
+## 四种模式的统计口径
 
-## 快速开始
+看板上同一个「总 HP」在不同模式下的含义不同，对比前请先确认口径：
 
-```bash
-# 安装依赖
-pnpm install
+| 模式     | 统计范围                       | 星启模式                       |
+| -------- | ------------------------------ | ------------------------------ |
+| 忘却之庭 | 仅最后一个关卡（最高难度层）   | `1033` 期起，表现为新增一路    |
+| 虚构叙事 | 仅最后阶段（阶段 4）           | `2024` 期起，可能追加无名阶段  |
+| 末日幻影 | 仅最后阶段（阶段 4）           | `3018` 期起，可能提供第 3 路   |
+| 异相仲裁 | 整期所有关卡汇总（含前置关卡） | 不区分星启                     |
 
-# 本地开发
-pnpm dev
+补充两点：
 
-# 生产构建
-pnpm build
+- **多阶段血量**：部分 boss 的真实总 HP 不是单段血量，而是 `HP × 阶段倍率之和`（详情页会以 `HP x2` 之类的标记显示），怪物数量也会参与乘算。
+- **名词**：这里的「节点」指几路（节点 1 / 2 / 3），「波次」指一个节点内部的出手批次；星启模式的本质通常是「多一路」。
 
-# 本地预览构建产物
-pnpm preview
-```
+## 数据与加载说明
 
-## 数据准备
+- 数据与怪物图片均来自公开数据源 [`static.nanoka.cc`](https://static.nanoka.cc)，本站不代理、不落盘这些数据。
+- 首次打开会拉取并计算各期怪物血量，**图表会边算边出**，不必等进度条走完。
+- 计算结果按游戏版本缓存在你本机浏览器，二次访问直接命中；游戏版本更新后自动失效重算。
+- 本项目用于统计**最新**数据，不做版本间差异比较。
 
-```bash
-# 校验独立数据源协议（默认不写本地）
-pnpm sync:data:check
+## 更新日志
 
-# 同样执行协议校验（不再复制到 public）
-pnpm sync:data
+历史变更见 [CHANGELOG.md](./CHANGELOG.md)，站内也可通过「页脚 → 更新记录」查看。
 
-# 可选下载离线副本到 .hsr-cache（仅排障用，不参与发布）
-pnpm sync:data -- --download .hsr-cache/shared-data
+## 反馈
 
-# 单独审计忘却之庭多阶段 HP
-pnpm audit:moc-phase-hp
-```
+- 微信：`cduyzh`（添加好友请注明来意）
+- 邮箱：[cduyzh@gmail.com](mailto:cduyzh@gmail.com)
 
-统一数据源为 `https://static.nanoka.cc`。页面所有 JSON 与怪物图片均由前端**直连数据源绝对地址**读取（数据源已开放 `Access-Control-Allow-Origin: *`），本站不再代理、不落盘、不随构建发布任何数据文件，以降低 Netlify 带宽与存储占用。版本入口为 `manifest.hsr.latest`；数据源不发布 `releaseId`，缓存隔离回退为版本号。轮播 banner 与 favicon 是本项目自有小体积资源，仍随构建发布。
+## 关于本仓库
 
-## 数据源远程协议（`static.nanoka.cc`）
-
-所有数据与怪物图片都不落盘、不随构建发布，前端直接请求数据源绝对地址：
-
-```text
-https://static.nanoka.cc/
-├── manifest.json                         # 全游戏版本索引，HSR 使用 manifest.hsr.latest
-├── assets/hsr/monstermiddleicon/
-│   └── Monster_<id>.webp                 # 怪物中图（页面图片直连地址）
-└── hsr/<ver>/
-    ├── monster.json                      # 怪物基础信息：名称、弱点、图标、子 id
-    ├── monstervalue.json                 # 怪物数值：HPBase、HPModifyRatio、HardLevelGroup、EliteGroup、PhaseList
-    ├── HardLevelGroup.json               # 等级难度倍率，按 HardLevelGroup + Level 匹配
-    ├── EliteGroup.json                   # 常规精英倍率
-    ├── InfiniteEliteGroup.json           # 无限/特殊精英倍率
-    ├── maze.json                         # 忘却之庭期数索引
-    ├── maze_extra.json                   # 虚构叙事期数索引
-    ├── maze_boss.json                    # 末日幻影期数索引
-    ├── maze_peak.json                    # 异相仲裁期数索引
-    └── <locale>/
-        ├── maze/<id>.json                # 忘却之庭单期详情
-        ├── story/<id>.json               # 虚构叙事单期详情
-        ├── boss/<id>.json                # 末日幻影单期详情
-        └── peak/<id>.json                # 异相仲裁单期详情
-```
-
-模式与文件映射：
-
-| 模式 | 期数索引 | 单期详情目录 | 说明 |
-| --- | --- | --- | --- |
-| `moc` | `maze.json` | `<locale>/maze/<id>.json` | 忘却之庭 |
-| `fiction` | `maze_extra.json` | `<locale>/story/<id>.json` | 虚构叙事 |
-| `doom` | `maze_boss.json` | `<locale>/boss/<id>.json` | 末日幻影 |
-| `peak` | `maze_peak.json` | `<locale>/peak/<id>.json` | 异相仲裁 |
-
-其他项目可直接读取数据源（已开放跨域）：
-
-```js
-const root = 'https://static.nanoka.cc'
-const manifest = await fetch(`${root}/manifest.json`).then(res => res.json())
-const ver = manifest.hsr.latest
-const locale = 'zh'
-
-// 数据源不发布 cache-plan.json：当前赛季按期数索引去重后的最大 id 推导
-const mocList = await fetch(`${root}/hsr/${ver}/maze.json`).then(res => res.json())
-const latestMocId = Math.max(...Object.values(mocList).map(it => Number(it.id)))
-const latestMocDetail = await fetch(`${root}/hsr/${ver}/${locale}/maze/${latestMocId}.json`).then(res => res.json())
-```
-
-注意事项：
-
-- `manifest.hsr.latest` 是默认版本入口；数据源不发布 `releaseId` 与 `cache-plan.json`，本项目用版本号做 localStorage 缓存隔离，当前赛季由各期数索引推导。
-- 详情 JSON 是上游原始结构镜像，不是本项目聚合后的趋势结果。若要复算 HP，需要结合 `monster.json`、`monstervalue.json`、`HardLevelGroup.json`、`EliteGroup.json` / `InfiniteEliteGroup.json`。
-- 数据源若发布 `computed/endgame/` 预计算派生件（`schemaVersion: 1`、`ver` 匹配），前端会优先消费；缺失时自动回退到 6 路受控并发实时复算，当前数据源未发布该目录，页面全程使用复算。
-- 多阶段敌人的真实 HP 需要乘 `monstervalue.json` 中 `PhaseList.phase_max_hp_ratio` 的总和。
-- 怪物图片统一读取数据源 `https://static.nanoka.cc/assets/hsr/monstermiddleicon/Monster_<id>.webp`；9 位实例怪物 id 通常需要回退到基础怪物 id。缺图时页面显示占位，不回退其他地址。
-- 原始期数列表可能包含历史或展示用条目；本项目趋势层还会做“名称相同且 id 差值 ≤ 2 时保留更小 id”的赛季去重。
-
-## 部署
-
-```bash
-pnpm deploy:netlify
-```
-
-调用 `scripts/deploy-netlify.sh` 完成登录态恢复与生产发布。`netlify.toml` 只保留 SPA 回退重写；数据与图片由前端直连数据源，不再需要任何代理重定向。
-
-## 项目结构
-
-```
-src/
-├── views/              # 页面
-│   ├── HpTrendsPage.vue     # 趋势总览页
-│   └── SeasonDetailPage.vue # 赛季详情页
-├── components/         # 通用组件
-│   ├── EChartView.vue       # ECharts 封装
-│   ├── EffectList.vue       # 末日幻影环境效果
-│   ├── MonsterList.vue      # 节点 / 波次怪物卡片
-│   ├── SeasonRail.vue       # 期数列表（含每期总 HP 与环比）
-│   ├── SegmentTabs.vue      # 模式 / 关卡切换
-│   └── StatCard.vue         # 看板数值卡
-├── composables/
-│   └── useModalDismiss.js   # 弹窗共用行为（Esc / 滚动锁定 / 焦点）
-├── services/
-│   ├── hsrStatic.js         # 数据加载（内存 + localStorage + 本地 JSON）
-│   ├── hpCalc.js            # HP 公式与怪物信息
-│   └── endgame.js           # 终局聚合与趋势
-├── router/             # 路由（保持滚动连续性 + 按路由设置标题）
-├── utils/format.js     # 数值与文本格式化
-└── styles/app.css      # 全局样式
-```
-
-## 名词与口径
-
-- **节点**：代表几路（节点 1/2/3）。星启模式本质是新增一路。
-- **波次**：节点内部的子关卡（波次 1/2/3...）。
-- **忘却之庭 / 虚构叙事 / 末日幻影**：只统计最后一个关卡 / 最后一个阶段的总 HP。
-- **虚构叙事星启节点**：`2024` 起可能通过阶段 4 后的无名 `level` 表达节点 3；该结构需要并入阶段 4，而不是作为独立阶段展示。
-- **异相仲裁**：按关卡拆分（含 `pre_level` 与 `将杀王棋` / `将杀王棋·绝境` 难度），整期仲裁项总 HP 汇总，不区分星启模式。
-
-### 业务规则
-
-- **赛季去重**：名称相同且 ID 差值 ≤ 2 时，仅保留更小 ID。
-- **HP 公式**：`HPBase × HPModifyRatio × HardLevelRatio × EliteRatio`；存在 `PhaseList` 时再乘所有 `phase_max_hp_ratio` 之和。
-- **怪物图片**：直连数据源 `https://static.nanoka.cc/assets/hsr/monstermiddleicon/Monster_{id}.webp`；9 位实例怪物 ID 自动回退到基础怪物 ID，缺图时页面显示占位，不回退其他地址。
-- **怪物数量**：同波次相同怪物聚合计数（x2、x3），总 HP = 单体 HP × 多阶段倍率 × count。
-- **虚构叙事无限波**：优先使用 `infinite_list*.monster_group_id_list` 统计敌人，并合并普通 `monster_list` 中无限波未包含的敌人，避免漏掉虚构集合体等补充怪或覆盖原始波次怪物。
-
-### 血量预计算发布约定
-
-- `hsr-data-hub` 在每次 release 的原始 JSON 同步、校验完成后生成 `computed/endgame/`，并与该 release 原子发布。
-- `trends.json` 根对象使用 `{ schemaVersion, ver, releaseId, generatedAt, modes }`，`modes.moc|fiction|doom|peak` 均为 `{ id, label, total, isStar }[]`。
-- 单期文件在现有 `getSeasonComputed()` 结果上增加 `{ schemaVersion, releaseId, generatedAt }`，保留 `modeKey / ver / id / effects / nodeEffects / stages`。
-- 生成期仍以 `src/services/endgame.js` 的统计口径为准；更改 HP 公式、星启节点或无限波规则时，必须提升 `schemaVersion` 或重建当前 release。
-- 预计算文件不可用时，趋势页使用 6 路受控并发复算，详情页使用原有单期复算，不因数据中心派生件缺失而不可用。
-
-## 开发约定
-
-- 顶部大区固定为「模式切换栏 + 普通文档流 banner」，不随滚动收起
-- 路由切换保持浏览器当前滚动位置（`src/router/index.js` 滚动策略返回 `false`）
-- 详情页加载态保留足够页面高度，避免瞬时变短导致滚动值夹断
-- `SegmentTabs` 两种布局：`fill`（短标签等宽铺满）/ `rail`（长标签优先可读，PC 端自动换行）
-- 使用缩写形式（`:checked="showRealtimePreview"`）而非 `v-model:checked`，并手动同步
-
-更多上下文见 [AGENTS.md](./AGENTS.md)。
+本仓库对外只维护两份文档：面向使用者的 `README.md` 与 `CHANGELOG.md`。站点源码、内部设计与流程文档均为本地维护，不再同步上传，因此这里看不到可直接构建的工程文件。
